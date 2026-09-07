@@ -38,8 +38,13 @@ router.get('/hero-image', async (_req, res) => {
 })
 router.put('/settings', requireAdmin, async (req, res) => {
   if (!assertDb(res)) return
-  const settings = await SiteSettings.findOneAndUpdate({}, req.body, { new: true, upsert: true, runValidators: true })
-  res.json(settings)
+  try {
+    const { _id, createdAt, updatedAt, __v, ...updates } = req.body || {}
+    const settings = await SiteSettings.findOneAndUpdate({}, updates, { new: true, upsert: true, runValidators: true })
+    res.json(normalizeAssetUrls(settings.toObject()))
+  } catch (error) {
+    res.status(400).json({ message: error.message || 'Unable to save website settings.' })
+  }
 })
 router.get('/services', async (_req, res) => {
   if (!isDatabaseConnected()) return res.json([])
