@@ -22,11 +22,13 @@ const allowedOrigins = new Set([
   'http://localhost:5174',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:5174',
+  'https://chalakgo-admin.netlify.app',
+  ...(process.env.CORS_ORIGINS || '').split(',').map(origin => origin.trim()).filter(Boolean),
 ])
 app.use(cors({
   origin(origin, callback) {
     // Requests without an Origin header (such as curl/health checks) are safe
-    // to accept; browser requests must come from one of the local Vite apps.
+    // to accept; browser requests must come from a configured app origin.
     callback(null, !origin || allowedOrigins.has(origin))
   },
   credentials: true
