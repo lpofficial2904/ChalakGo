@@ -5,6 +5,7 @@ import Service from '../models/Service.js'
 import SiteSettings from '../models/SiteSettings.js'
 import Page from '../models/Page.js'
 import Blog from '../models/Blog.js'
+import { normalizeAssetUrls } from '../utils/assets.js'
 
 const router = Router()
 const defaultSettings = { siteName: 'ChalakGo', logo: '', phone: '+91 98765 43210', email: 'support@chalakgo.in', address: 'Virasat Homes, Scheme Number 4, Narayan Vihar, Jaipur, Rajasthan 302020, India', facebook: '', instagram: '', linkedin: '', youtube: '' }
@@ -29,11 +30,11 @@ router.get('/settings', async (_req, res) => {
   if (!isDatabaseConnected()) return res.json(defaultSettings)
   // A migration can create this document before contact details are saved.
   // Always return complete settings to frontend consumers.
-  res.json({ ...defaultSettings, ...((await SiteSettings.findOne().lean()) || {}) })
+  res.json(normalizeAssetUrls({ ...defaultSettings, ...((await SiteSettings.findOne().lean()) || {}) }))
 })
 router.get('/hero-image', async (_req, res) => {
   const settings = isDatabaseConnected() ? await SiteSettings.findOne().lean() : null
-  res.redirect(settings?.heroImage || 'http://localhost:5173/src/assets/hero.png')
+  res.redirect(normalizeAssetUrls(settings?.heroImage || 'http://localhost:5173/src/assets/hero.png'))
 })
 router.put('/settings', requireAdmin, async (req, res) => {
   if (!assertDb(res)) return
@@ -43,12 +44,12 @@ router.put('/settings', requireAdmin, async (req, res) => {
 router.get('/services', async (_req, res) => {
   if (!isDatabaseConnected()) return res.json([])
   await importDefaultServices()
-  res.json(await Service.find({ isActive: true }).sort({ name: 1 }))
+  res.json(normalizeAssetUrls(await Service.find({ isActive: true }).sort({ name: 1 }).lean()))
 })
 router.get('/services/admin', requireAdmin, async (_req, res) => {
   if (!assertDb(res)) return
   await importDefaultServices()
-  res.json(await Service.find().sort({ name: 1 }))
+  res.json(normalizeAssetUrls(await Service.find().sort({ name: 1 }).lean()))
 })
 router.post('/services', requireAdmin, async (req, res) => {
   if (!assertDb(res)) return
@@ -68,11 +69,11 @@ router.delete('/services/:id', requireAdmin, async (req, res) => {
 
 router.get('/pages', async (_req, res) => {
   if (!isDatabaseConnected()) return res.json([])
-  res.json(await Page.find({ isPublished: true }).sort({ title: 1 }))
+  res.json(normalizeAssetUrls(await Page.find({ isPublished: true }).sort({ title: 1 }).lean()))
 })
 router.get('/pages/admin/all', requireAdmin, async (_req, res) => {
   if (!assertDb(res)) return
-  res.json(await Page.find().sort({ updatedAt: -1 }))
+  res.json(normalizeAssetUrls(await Page.find().sort({ updatedAt: -1 }).lean()))
 })
 router.post('/pages', requireAdmin, async (req, res) => {
   if (!assertDb(res)) return
@@ -91,11 +92,11 @@ router.delete('/pages/:id', requireAdmin, async (req, res) => {
 })
 router.get('/blogs', async (_req, res) => {
   if (!isDatabaseConnected()) return res.json([])
-  res.json(await Blog.find({ isPublished: true }).sort({ publishedAt: -1, createdAt: -1 }))
+  res.json(normalizeAssetUrls(await Blog.find({ isPublished: true }).sort({ publishedAt: -1, createdAt: -1 }).lean()))
 })
 router.get('/blogs/admin/all', requireAdmin, async (_req, res) => {
   if (!assertDb(res)) return
-  res.json(await Blog.find().sort({ updatedAt: -1 }))
+  res.json(normalizeAssetUrls(await Blog.find().sort({ updatedAt: -1 }).lean()))
 })
 router.post('/blogs', requireAdmin, async (req, res) => {
   if (!assertDb(res)) return
@@ -105,7 +106,7 @@ router.put('/blogs/:id', requireAdmin, async (req, res) => {
   if (!assertDb(res)) return
   const blog = await Blog.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
   if (!blog) return res.status(404).json({ message: 'Blog post not found.' })
-  res.json(blog)
+  res.json(normalizeAssetUrls(blog.toObject()))
 })
 router.delete('/blogs/:id', requireAdmin, async (req, res) => {
   if (!assertDb(res)) return
@@ -122,6 +123,6 @@ router.get('/pages/:slug', async (req, res) => {
   if (!isDatabaseConnected()) return res.status(404).json({ message: 'Page not found.' })
   const page = await Page.findOne({ slug: req.params.slug, isPublished: true })
   if (!page) return res.status(404).json({ message: 'Page not found.' })
-  res.json(page)
+  res.json(normalizeAssetUrls(page.toObject()))
 })
 export default router

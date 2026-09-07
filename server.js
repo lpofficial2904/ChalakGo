@@ -23,6 +23,7 @@ const allowedOrigins = new Set([
   'http://127.0.0.1:5173',
   'http://127.0.0.1:5174',
   'https://chalakgo-admin.netlify.app',
+  'https://chalakgoo.netlify.app',
   ...(process.env.CORS_ORIGINS || '').split(',').map(origin => origin.trim()).filter(Boolean),
 ])
 app.use(cors({

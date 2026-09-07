@@ -1,17 +1,18 @@
 import { Router } from 'express'
 import Review from '../models/Review.js'
 import { requireAdmin } from '../middleware/auth.js'
+import { normalizeAssetUrls } from '../utils/assets.js'
 
 const router = Router()
 
 router.get('/', async (_req, res) => {
   const reviews = await Review.find({ isPublished: true }).sort({ isFeatured: -1, createdAt: -1 })
-  res.json(reviews)
+  res.json(normalizeAssetUrls(reviews.map(review => review.toObject())))
 })
 
 router.get('/admin', requireAdmin, async (_req, res) => {
   const reviews = await Review.find().sort({ createdAt: -1 })
-  res.json(reviews)
+  res.json(normalizeAssetUrls(reviews.map(review => review.toObject())))
 })
 
 router.post('/', requireAdmin, async (req, res) => {
