@@ -5,6 +5,7 @@ import express from 'express'
 import { connectDatabaseWithRetry, disconnectDatabase, isDatabaseConnected } from './db.js'
 import { requireAdmin } from './middleware/auth.js'
 import bookingRoutes from './routes/bookings.js'
+import locationRoutes from './routes/location.js'
 import reviewRoutes from './routes/reviews.js'
 import authRoutes from './routes/auth.js'
 import siteRoutes from './routes/site.js'
@@ -41,8 +42,6 @@ const storage = multer.diskStorage({ destination: uploadDir, filename: (_req, fi
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: (_req, file, cb) => cb(null, /^image\/(jpeg|png|webp|gif)$/.test(file.mimetype)) })
 app.use('/uploads', express.static(uploadDir))
 
-const reverseGeocodeCache = new Map()
-const reverseGeocodeCacheMs = 60_000
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, database: isDatabaseConnected() ? 'connected' : 'not connected' }))
 app.post('/api/uploads', requireAdmin, (req, res) => upload.single('image')(req, res, error => {
@@ -50,29 +49,7 @@ app.post('/api/uploads', requireAdmin, (req, res) => upload.single('image')(req,
   if (!req.file) return res.status(400).json({ message: 'Please select a JPG, PNG, WEBP, or GIF image.' })
   res.status(201).json({ url: `/uploads/${req.file.filename}` })
 }))
-app.get('/api/location/reverse', async (req, res) => {
-  const latitude = Number(req.query.latitude)
-  const longitude = Number(req.query.longitude)
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-    return res.status(400).json({ message: 'Valid latitude and longitude are required.' })
-  }
-
-  const cacheKey = `${latitude.toFixed(4)},${longitude.toFixed(4)}`
-  const cached = reverseGeocodeCache.get(cacheKey)
-  if (cached && Date.now() - cached.createdAt < reverseGeocodeCacheMs) return res.json(cached.data)
-
-  try {
-    const url = new URL('https://nominatim.openstreetmap.org/reverse')
-    url.search = new URLSearchParams({ format: 'jsonv2', addressdetails: '1', zoom: '18', lat: String(latitude), lon: String(longitude), 'accept-language': 'en' })
-    const response = await fetch(url, { headers: { 'User-Agent': 'ChalakGo booking location service/1.0', Accept: 'application/json' } })
-    if (!response.ok) throw new Error(`Location service returned ${response.status}`)
-    const data = await response.json()
-    reverseGeocodeCache.set(cacheKey, { data, createdAt: Date.now() })
-    res.json(data)
-  } catch (error) {
-    res.status(502).json({ message: 'Unable to resolve this location right now.', error: error.message })
-  }
-})
+app.use('/api/location', locationRoutes)
 app.use('/api/bookings', bookingRoutes)
 app.use('/api/reviews', reviewRoutes)
 app.use('/api/auth', authRoutes)

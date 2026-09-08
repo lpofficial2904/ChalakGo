@@ -8,13 +8,13 @@ import Blog from '../models/Blog.js'
 import { normalizeAssetUrls } from '../utils/assets.js'
 
 const router = Router()
-const defaultSettings = { siteName: 'ChalakGo', logo: '', phone: '+91 98765 43210', email: 'support@chalakgo.in', address: 'Virasat Homes, Scheme Number 4, Narayan Vihar, Jaipur, Rajasthan 302020, India', facebook: '', instagram: '', linkedin: '', youtube: '' }
+const defaultSettings = { siteName: 'ChalakGo', logo: '', navbarLogo: '', footerLogo: '', mainFavicon: '', adminFavicon: '', phone: '+91 98765 43210', email: 'support@chalakgo.in', address: 'Virasat Homes, Scheme Number 4, Narayan Vihar, Jaipur, Rajasthan 302020, India', facebook: '', instagram: '', linkedin: '', youtube: '' }
 const assertDb = (res) => isDatabaseConnected() || (res.status(503).json({ message: 'Database is not connected.' }), false)
 const defaultServices = [
-  { slug: 'driver-only', name: 'Driver Only', price: '₹25/hr', eyebrow: 'YOUR CAR, OUR EXPERT DRIVER', detail: 'A trained, verified chauffeur drives your own car safely and professionally.', features: ['Background-verified driver', 'Live trip location updates', 'Hourly, daily, and weekly options'], image: 'https://images.unsplash.com/photo-1551830820-330a71b99659?auto=format&fit=crop&w=1200&q=85', isActive: true },
-  { slug: 'car-driver', name: 'Car + Driver', price: '₹65/hr', eyebrow: 'PREMIUM CAR WITH PROFESSIONAL CHAUFFEUR', detail: 'Travel in comfort with a clean premium car and an experienced driver for work, airport transfers, and special occasions.', features: ['Executive sedan and SUV choices', 'Professional uniformed driver', 'Clean, sanitised vehicle and live tracking'], image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=85', isActive: true },
-  { slug: 'permanent-driver', name: 'Permanent Driver', price: '₹3,200/mo', eyebrow: 'YOUR DEDICATED MONTHLY CHAUFFEUR', detail: 'A reliable dedicated driver for daily family travel, office commutes, and a consistent driving routine.', features: ['Dedicated driver matching', 'Backup-driver support', 'Personalised monthly schedule'], image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=1200&q=85', isActive: true }
-  ,{ slug: 'jaipur-tour', name: 'Jaipur Tour', price: '₹2,999/day', eyebrow: 'EXPLORE THE PINK CITY', detail: 'Book a comfortable private Jaipur sightseeing tour for one day or two days with a professional driver.', features: ['Flexible 1-day and 2-day plans', 'Choose your preferred places', 'Private car and professional driver'], image: 'https://images.unsplash.com/photo-1599661046827-dacde6976540?auto=format&fit=crop&w=1200&q=85', tourPlans: [{ days: 1, price: '₹2,999', places: ['Amber Fort', 'Jal Mahal', 'Hawa Mahal', 'City Palace', 'Jantar Mantar'] }, { days: 2, price: '₹5,499', places: ['Amber Fort', 'Jal Mahal', 'Hawa Mahal', 'City Palace', 'Jantar Mantar', 'Nahargarh Fort', 'Jaigarh Fort', 'Albert Hall Museum'] }], isActive: true }
+  { slug: 'driver-only', name: 'Driver Only', price: '₹65/hr; ₹60/hr for 24 hours', eyebrow: 'YOUR CAR, OUR EXPERT DRIVER', detail: 'A trained, verified chauffeur drives your own car safely and professionally.', features: ['Background-verified driver', 'Live trip location updates', 'Hourly, daily, and weekly options'], image: 'https://images.unsplash.com/photo-1551830820-330a71b99659?auto=format&fit=crop&w=1200&q=85', isActive: true },
+  { slug: 'car-driver', name: 'Cab (Car + Driver)', price: 'SUV ₹18/km; Hatchback ₹14/km; Haravan Traveller ₹35/km', pricingType: 'distance', vehicleRates: { suv: 18, hatchback: 14, traveller: 35 }, eyebrow: 'PREMIUM CAR WITH PROFESSIONAL CHAUFFEUR', detail: 'Travel in comfort with a clean premium car and an experienced driver for work, airport transfers, and special occasions.', features: ['Executive sedan and SUV choices', 'Professional uniformed driver', 'Clean, sanitised vehicle and live tracking'], image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=85', isActive: true },
+  { slug: 'permanent-driver', name: 'Permanent Driver', price: '₹15,000–₹22,000/month', pricingType: 'monthly', monthlyRates: { sixToEight: 15000, eightToTen: 18000, tenToTwelve: 22000 }, eyebrow: 'YOUR DEDICATED MONTHLY CHAUFFEUR', detail: 'A reliable dedicated driver for daily family travel, office commutes, and a consistent driving routine.', features: ['Dedicated driver matching', 'Backup-driver support', 'Personalised monthly schedule'], image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=1200&q=85', isActive: true }
+  ,{ slug: 'jaipur-tour', name: 'Jaipur Tour', price: 'Plans from ₹2,999', pricingType: 'fixed', eyebrow: 'EXPLORE THE PINK CITY', detail: 'Book a comfortable private Jaipur sightseeing tour for one day or two days with a professional driver.', features: ['Flexible 1-day and 2-day plans', 'Choose your preferred places', 'Private car and professional driver'], image: 'https://images.unsplash.com/photo-1599661046827-dacde6976540?auto=format&fit=crop&w=1200&q=85', tourPlans: [{ days: 1, price: '₹2,999', places: ['Amber Fort', 'Jal Mahal', 'Hawa Mahal', 'City Palace', 'Jantar Mantar'] }, { days: 2, price: '₹3,499', places: ['Amber Fort', 'Jal Mahal', 'Hawa Mahal', 'City Palace', 'Jantar Mantar', 'Nahargarh Fort', 'Jaigarh Fort', 'Albert Hall Museum'] }], isActive: true }
 ]
 
 // One-time migration: services that used to live in the React component are
@@ -23,6 +23,10 @@ async function importDefaultServices() {
   if (!isDatabaseConnected()) return
   const settings = await SiteSettings.findOne().lean()
   for (const service of defaultServices) await Service.updateOne({ slug: service.slug }, { $setOnInsert: service }, { upsert: true })
+  await Service.updateOne({ slug: 'car-driver', $or: [{ pricingType: { $ne: 'distance' } }, { 'vehicleRates.traveller': { $exists: false } }] }, { $set: { name: 'Cab (Car + Driver)', price: 'SUV ₹18/km; Hatchback ₹14/km; Haravan Traveller ₹35/km', pricingType: 'distance', vehicleRates: { suv: 18, hatchback: 14, traveller: 35 } } })
+  await Service.updateOne({ slug: 'permanent-driver', $or: [{ pricingType: { $ne: 'monthly' } }, { monthlyRates: { $exists: false } }] }, { $set: { price: '₹15,000–₹22,000/month', pricingType: 'monthly', monthlyRates: { sixToEight: 15000, eightToTen: 18000, tenToTwelve: 22000 } } })
+  await Service.updateOne({ slug: 'jaipur-tour', 'tourPlans.days': 2, 'tourPlans.price': '₹5,499' }, { $set: { price: 'Plans from ₹2,999', pricingType: 'fixed', 'tourPlans.$[plan].price': '₹3,499' } }, { arrayFilters: [{ 'plan.days': 2 }] })
+  await Service.updateOne({ slug: 'driver-only' }, { $set: { price: '₹65/hr; ₹60/hr for 24 hours' } })
   await SiteSettings.findOneAndUpdate({}, { $set: { defaultServicesImported: true } }, { upsert: true })
 }
 
@@ -62,7 +66,8 @@ router.post('/services', requireAdmin, async (req, res) => {
 })
 router.put('/services/:id', requireAdmin, async (req, res) => {
   if (!assertDb(res)) return
-  const service = await Service.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+  const { _id, createdAt, updatedAt, __v, ...updates } = req.body || {}
+  const service = await Service.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true })
   if (!service) return res.status(404).json({ message: 'Service not found.' })
   res.json(service)
 })
@@ -86,7 +91,8 @@ router.post('/pages', requireAdmin, async (req, res) => {
 })
 router.put('/pages/:id', requireAdmin, async (req, res) => {
   if (!assertDb(res)) return
-  const page = await Page.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+  const { _id, createdAt, updatedAt, __v, ...updates } = req.body || {}
+  const page = await Page.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true })
   if (!page) return res.status(404).json({ message: 'Page not found.' })
   res.json(page)
 })
@@ -109,7 +115,8 @@ router.post('/blogs', requireAdmin, async (req, res) => {
 })
 router.put('/blogs/:id', requireAdmin, async (req, res) => {
   if (!assertDb(res)) return
-  const blog = await Blog.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+  const { _id, createdAt, updatedAt, __v, ...updates } = req.body || {}
+  const blog = await Blog.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true })
   if (!blog) return res.status(404).json({ message: 'Blog post not found.' })
   res.json(normalizeAssetUrls(blog.toObject()))
 })
