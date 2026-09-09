@@ -1,5 +1,13 @@
-// Shared by the browser and server. Booking inputs are local wall-clock times;
-// parse them as UTC solely for timezone-independent calendar arithmetic.
+// Temporary-driver pricing, used by both the booking validator and the UI.
+// A booking includes the first 10 hours for a flat rate. Each later hour is billed
+// separately, then the one-time promotional discount is applied.
+export const TEMPORARY_DRIVER_PRICING = {
+  baseHours: 10,
+  baseFare: 1200,
+  additionalHourlyRate: 99,
+  promotionalDiscount: 200,
+}
+
 function parseBookingTime(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
     throw new Error('Select a valid start and end date/time.')
@@ -11,30 +19,27 @@ function parseBookingTime(value) {
   return milliseconds
 }
 
-function parsePrice(value) {
-  const text = typeof value === 'string' ? value.replace(/,/g, '') : ''
-  const matches = [...text.matchAll(/₹?\s*(\d+(?:\.\d+)?)\s*(?:\/|per\s+)(hr|hour|hours?|day|days?)\b/gi)]
-  if (!matches.length) throw new Error('This service does not have a valid hourly or daily price.')
-  return matches.map(match => ({ amount: Number(match[1]), unit: match[2].toLowerCase().startsWith('d') ? 'day' : 'hour' }))
-}
-
-export function calculateTemporaryDriverFare({ startDateTime, endDateTime, price = '₹65/hr; ₹60/hr for 24 hours' }) {
+export function calculateTemporaryDriverFare({ startDateTime, endDateTime }) {
   const durationMinutes = (parseBookingTime(endDateTime) - parseBookingTime(startDateTime)) / 60000
   if (durationMinutes <= 0) throw new Error('End date/time must be after start date/time.')
-  const rates = parsePrice(price)
-  const rate = rates[durationMinutes === 24 * 60 && rates.length > 1 ? 1 : 0]
-  const totalFare = rate.unit === 'day' ? durationMinutes * rate.amount / (24 * 60) : durationMinutes * rate.amount / 60
+
+  const durationHours = durationMinutes / 60
+  const additionalHours = Math.max(0, durationHours - TEMPORARY_DRIVER_PRICING.baseHours)
+  const additionalFare = additionalHours * TEMPORARY_DRIVER_PRICING.additionalHourlyRate
+  const subtotal = TEMPORARY_DRIVER_PRICING.baseFare + additionalFare
+  const discount = Math.min(TEMPORARY_DRIVER_PRICING.promotionalDiscount, subtotal)
+
   return {
     durationMinutes,
     duration: `${Math.floor(durationMinutes / 60)} hours ${durationMinutes % 60} minutes`,
-    hourlyRate: rate.unit === 'hour' ? rate.amount : undefined,
-    dailyRate: rate.unit === 'day' ? rate.amount : undefined,
-    rateUnit: rate.unit,
-    firstHours: durationMinutes / 60,
-    additionalHours: 0,
-    firstFare: totalFare,
-    additionalFare: 0,
-    totalFare: Math.round(totalFare * 100) / 100,
+    baseHours: TEMPORARY_DRIVER_PRICING.baseHours,
+    baseFare: TEMPORARY_DRIVER_PRICING.baseFare,
+    additionalHours,
+    additionalHourlyRate: TEMPORARY_DRIVER_PRICING.additionalHourlyRate,
+    additionalFare: Math.round(additionalFare * 100) / 100,
+    subtotal: Math.round(subtotal * 100) / 100,
+    discount,
+    totalFare: Math.round((subtotal - discount) * 100) / 100,
   }
 }
 
