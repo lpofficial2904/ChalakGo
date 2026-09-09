@@ -8,7 +8,7 @@ import Blog from '../models/Blog.js'
 import { normalizeAssetUrls } from '../utils/assets.js'
 
 const router = Router()
-const defaultSettings = { siteName: 'ChalakGo', logo: '', navbarLogo: '', footerLogo: '', mainFavicon: '', adminFavicon: '', phone: '+91 98765 43210', email: 'support@chalakgo.in', address: 'Virasat Homes, Scheme Number 4, Narayan Vihar, Jaipur, Rajasthan 302020, India', facebook: '', instagram: '', linkedin: '', youtube: '' }
+const defaultSettings = { siteName: 'ChalakGo', logo: '', navbarLogo: '', footerLogo: '', mainFavicon: '', adminFavicon: '', heroImage: '', heroTitle: '', heroText: '', topBarMessage: 'Professional drivers for every journey · 24/7 booking support', phone: '+91 98765 43210', email: 'support@chalakgo.in', bookingEmail: '', bookingEmailSubject: '', contactEmail: '', contactEmailSubject: '', contactEmailMessage: '', address: 'Virasat Homes, Scheme Number 4, Narayan Vihar, Jaipur, Rajasthan 302020, India', facebook: '', instagram: '', whatsapp: '', linkedin: '', youtube: '', otpEmailFrom: '', otpEmailSubject: '', emailDeliveryConfigured: false, emailOtpEnabled: true, bookingEmailEnabled: true, contactEmailEnabled: true, whatsappEnabled: false, whatsappApiVersion: 'v21.0', whatsappPhoneNumberId: '', whatsappRecipient: '' }
 const assertDb = (res) => isDatabaseConnected() || (res.status(503).json({ message: 'Database is not connected.' }), false)
 const defaultServices = [
   { slug: 'driver-only', name: 'Driver Only', price: '₹65/hr; ₹60/hr for 24 hours', eyebrow: 'YOUR CAR, OUR EXPERT DRIVER', detail: 'A trained, verified chauffeur drives your own car safely and professionally.', features: ['Background-verified driver', 'Live trip location updates', 'Hourly, daily, and weekly options'], image: 'https://images.unsplash.com/photo-1551830820-330a71b99659?auto=format&fit=crop&w=1200&q=85', isActive: true },
@@ -34,7 +34,23 @@ router.get('/settings', async (_req, res) => {
   if (!isDatabaseConnected()) return res.json(defaultSettings)
   // A migration can create this document before contact details are saved.
   // Always return complete settings to frontend consumers.
-  res.json(normalizeAssetUrls({ ...defaultSettings, ...((await SiteSettings.findOne().lean()) || {}) }))
+  const storedSettings = (await SiteSettings.findOne().lean()) || {}
+  const settings = { ...defaultSettings, ...storedSettings }
+  delete settings.smtpPass
+  delete settings.whatsappAccessToken
+  const smtpUser = storedSettings.smtpUser || process.env.SMTP_USER || ''
+  const smtpHost = storedSettings.smtpHost || (smtpUser.toLowerCase().endsWith('@gmail.com') ? 'smtp.gmail.com' : process.env.SMTP_HOST)
+  settings.smtpHost = smtpHost || ''
+  if (settings.contactEmail === 'support@chalakgo.in') settings.contactEmail = smtpUser || ''
+  settings.smtpPassConfigured = Boolean(storedSettings.smtpPass || process.env.SMTP_PASS)
+  settings.emailDeliveryConfigured = Boolean(
+    smtpHost &&
+    smtpUser &&
+    (storedSettings.smtpPass || process.env.SMTP_PASS)
+  )
+  settings.whatsappConfigured = Boolean(storedSettings.whatsappPhoneNumberId && storedSettings.whatsappAccessToken && storedSettings.whatsappRecipient)
+  settings.whatsappTokenConfigured = Boolean(storedSettings.whatsappAccessToken)
+  res.json(normalizeAssetUrls(settings))
 })
 router.get('/hero-image', async (_req, res) => {
   const settings = isDatabaseConnected() ? await SiteSettings.findOne().lean() : null
@@ -43,7 +59,9 @@ router.get('/hero-image', async (_req, res) => {
 router.put('/settings', requireAdmin, async (req, res) => {
   if (!assertDb(res)) return
   try {
-    const { _id, createdAt, updatedAt, __v, ...updates } = req.body || {}
+    const { _id, createdAt, updatedAt, __v, emailDeliveryConfigured, smtpPassConfigured, whatsappConfigured, whatsappTokenConfigured, ...updates } = req.body || {}
+    if (!updates.smtpPass) delete updates.smtpPass
+    if (!updates.whatsappAccessToken) delete updates.whatsappAccessToken
     const settings = await SiteSettings.findOneAndUpdate({}, updates, { new: true, upsert: true, runValidators: true })
     res.json(normalizeAssetUrls(settings.toObject()))
   } catch (error) {

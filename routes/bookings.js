@@ -5,6 +5,8 @@ import { requireUser } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/auth.js'
 import { generateBookingId } from '../utils/bookingId.js'
 import Service from '../models/Service.js'
+import { sendBookingEmail } from '../utils/mailer.js'
+import { sendWhatsAppText } from '../utils/whatsapp.js'
 
 const router = Router()
 
@@ -65,7 +67,13 @@ router.post('/', requireUser, async (req, res) => {
         if (error.code !== 11000 || !error.keyPattern?.bookingId || attempt === 4) throw error
       }
     }
-    res.status(201).json({ message: 'Booking created', booking })
+    let emailSent = false
+    let whatsappSent = false
+    try { emailSent = await sendBookingEmail(booking.toObject()) } catch (error) { console.error('Booking email notification failed:', error.message) }
+    try {
+      whatsappSent = await sendWhatsAppText(`New ChalakGo booking\n\nBooking ID: ${booking.bookingId}\nService: ${booking.service}\nName: ${booking.fullName}\nPhone: ${booking.phone}\nEmail: ${booking.email}\nPickup: ${booking.pickupAddress || booking.pickupLocation || booking.address}\nDuration: ${booking.duration}\nCar type: ${booking.carType}\nTotal fare: ${booking.totalFare || 'Not calculated'}`)
+    } catch (error) { console.error('Booking WhatsApp notification failed:', error.message) }
+    res.status(201).json({ message: 'Booking created', booking, emailSent, whatsappSent })
   } catch (error) {
     res.status(400).json({ message: 'Unable to create booking', error: error.message })
   }

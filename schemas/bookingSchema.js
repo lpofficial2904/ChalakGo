@@ -86,9 +86,9 @@ bookingSchema.pre('validate', function () {
         : this.pricingType === 'fixed'
           ? calculateFixedFare(this)
       : calculateTemporaryDriverFare({ ...this.toObject(), price: this.servicePrice || '₹65/hr; ₹60/hr for 24 hours' })
-    this.duration = fare.duration
-    this.durationMinutes = fare.durationMinutes
-    this.totalFare = fare.totalFare
+    if (fare.duration !== undefined) this.duration = fare.duration
+    if (fare.durationMinutes !== undefined) this.durationMinutes = fare.durationMinutes
+    if (fare.totalFare !== undefined) this.totalFare = fare.totalFare
     if (this.startDateTime) [this.startDate, this.startTime] = this.startDateTime.split('T')
     if (this.endDateTime) [this.endDate, this.endTime] = this.endDateTime.split('T')
   } catch (error) {

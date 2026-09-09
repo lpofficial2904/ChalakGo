@@ -9,6 +9,7 @@ export function requireAdmin(req, res, next) {
     const token = req.cookies?.[cookieName] || req.headers.authorization?.replace(/^Bearer\s+/i, '')
     if (!token) return res.status(401).json({ message: 'Login required.' })
     req.admin = jwt.verify(token, secret())
+    if (req.admin.role !== 'admin') return res.status(403).json({ message: 'Admin access required.' })
     next()
   } catch {
     res.status(401).json({ message: 'Your session has expired. Please log in again.' })
@@ -20,7 +21,7 @@ export function requireUser(req, res, next) {
     const token = req.cookies?.chalakgo_user_session || req.headers.authorization?.replace(/^Bearer\s+/i, '')
     if (!token) return res.status(401).json({ message: 'Please log in to book a driver.' })
     const user = jwt.verify(token, secret())
-    if (user.role !== 'user') return res.status(403).json({ message: 'Customer account required.' })
+    if (!['user', 'admin'].includes(user.role)) return res.status(403).json({ message: 'Customer account required.' })
     req.user = user
     next()
   } catch { res.status(401).json({ message: 'Your session has expired. Please log in again.' }) }
@@ -37,8 +38,8 @@ export function clearAdminSession(res) {
 }
 
 export function createUserSession(res, user) {
-  const token = jwt.sign(user, secret(), { expiresIn: '30d' })
-  res.cookie('chalakgo_user_session', token, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 30 * 24 * 60 * 60 * 1000 })
+  const token = jwt.sign(user, secret(), { expiresIn: '24h' })
+  res.cookie('chalakgo_user_session', token, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge })
   return token
 }
 
