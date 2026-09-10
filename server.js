@@ -35,6 +35,7 @@ const allowedOrigins = new Set([
   "https://visionary-gaufre-b94cb4.netlify.app/",
   "https://chalakgo.com/",
   "https://admin.chalakgo.com/",
+  "https://api.chalakgo.com/",
   ...(process.env.CORS_ORIGINS || "")
     .split(",")
     .map((origin) => origin.trim())
