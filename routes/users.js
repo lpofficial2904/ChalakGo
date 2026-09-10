@@ -21,6 +21,18 @@ const normaliseEmail = (value) =>
     .toLowerCase();
 const validEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const hashOtp = (value) => createHash("sha256").update(value).digest("hex");
+const otpDeliveryMessage = (error) => {
+  // Do not expose SMTP provider details or credentials in the customer UI.
+  // Gmail rejects normal account passwords; it requires an App Password.
+  if (
+    error?.code === "EAUTH" ||
+    /badcredentials|username and password not accepted|invalid login/i.test(
+      error?.message || "",
+    )
+  )
+    return "OTP email service is not authenticated. The administrator must update the Gmail App Password in Email Notifications.";
+  return error?.message || "Unable to send OTP. Please try again.";
+};
 const unavailable = (res) =>
   res
     .status(503)
@@ -28,19 +40,30 @@ const unavailable = (res) =>
 
 router.post("/login", async (req, res) => {
   if (!isDatabaseConnected()) return unavailable(res);
-  const mobile = mobileOf(req.body.mobile),
+  const identifier = String(req.body.identifier || req.body.mobile || "")
+      .trim()
+      .toLowerCase(),
     password = String(req.body.password || "");
-  const account = await User.findOne({ mobile });
-  if (
-    !account?.passwordHash ||
-    !(await bcrypt.compare(password, account.passwordHash))
-  )
+  if (!identifier || !validPassword(password))
+    return res.status(400).json({
+      message: "Enter your username or email and a password of at least 8 characters.",
+    });
+  const account = await User.findOne({
+    $or: [{ email: identifier }, { username: identifier }, { mobile: mobileOf(identifier) }],
+  });
+  if (!account)
     return res
       .status(401)
       .json({
-        message:
-          "Invalid mobile number or password. Use email OTP if this is an OTP-only account.",
+        message: "Invalid mobile number or password.",
       });
+  if (!account.passwordHash)
+    return res.status(401).json({
+      message:
+        "This account has no password yet. Use email OTP to sign in, or create a new account with a password.",
+    });
+  if (!(await bcrypt.compare(password, account.passwordHash)))
+    return res.status(401).json({ message: "Invalid mobile number or password." });
   const user = {
     id: account._id.toString(),
     fullName: account.fullName,
@@ -50,42 +73,69 @@ router.post("/login", async (req, res) => {
   };
   res.json({ user, token: createUserSession(res, user) });
 });
+router.post("/signup", async (req, res) => {
+  if (!isDatabaseConnected()) return unavailable(res);
+  const fullName = String(req.body.fullName || "").trim();
+  const mobile = mobileOf(req.body.mobile);
+  const email = normaliseEmail(req.body.email);
+  const username = String(req.body.username || "").trim().toLowerCase();
+  const password = String(req.body.password || "");
+  if (!fullName || !/^[6-9][0-9]{9}$/.test(mobile))
+    return res.status(400).json({ message: "Enter your full name and a valid 10-digit mobile number." });
+  if (!validEmail(email))
+    return res.status(400).json({ message: "Enter a valid email address." });
+  if (username && !/^[a-z0-9_]{3,30}$/.test(username))
+    return res.status(400).json({ message: "Username must be 3-30 letters, numbers, or underscores." });
+  if (!validPassword(password))
+    return res.status(400).json({ message: "Password must contain at least 8 characters." });
+  try {
+    const account = await User.create({ fullName, mobile, ...(email ? { email } : {}), ...(username ? { username } : {}), passwordHash: await bcrypt.hash(password, 12), role: "user" });
+    const user = { id: account._id.toString(), fullName: account.fullName, mobile: account.mobile, email: account.email, role: account.role };
+    res.status(201).json({ user, token: createUserSession(res, user) });
+  } catch (error) {
+    if (error?.code === 11000)
+      return res.status(409).json({ message: "This username, email, or mobile number is already registered." });
+    return res.status(400).json({ message: error.message || "Unable to create account." });
+  }
+});
 router.post("/otp/request", async (req, res) => {
   if (!isDatabaseConnected()) return unavailable(res);
   const email = normaliseEmail(req.body.email);
   if (!validEmail(email))
     return res.status(400).json({ message: "Enter a valid email address." });
-  let account = await User.findOne({ email }).select(
-    "+otpHash +otpExpiresAt +otpAttempts",
-  );
-  let createdAccount = false;
   const isSignup = req.body.signup === true;
-  if (!account && !isSignup)
-    return res
-      .status(404)
-      .json({
-        message: "No account exists for this email. Create an account to continue.",
-      });
-  if (!account) {
-    const fullName = String(req.body.fullName || "").trim();
-    const mobile = mobileOf(req.body.mobile);
-    if (!fullName || !/^[6-9][0-9]{9}$/.test(mobile))
-      return res.status(400).json({
-        message: "Enter your full name and a valid 10-digit mobile number.",
-      });
+  if (!isSignup) {
+    const account = await User.findOne({ email }).select(
+      "+otpHash +otpExpiresAt +otpAttempts",
+    );
+    if (!account)
+      return res.status(404).json({ message: "No account exists for this email. Please sign up first." });
+    if (account.otpExpiresAt?.getTime() - 10 * 60 * 1000 > Date.now() - 45_000)
+      return res.status(429).json({ message: "Please wait 45 seconds before requesting another OTP." });
+    const otp = String(randomInt(100000, 1000000));
     try {
-      account = await User.create({ fullName, mobile, email, role: "user" });
-      createdAccount = true;
+      await sendLoginOtp(email, otp);
     } catch (error) {
-      if (error?.code === 11000)
-        return res.status(409).json({
-          message: "An account already uses this mobile number or email. Please log in.",
-        });
-      return res.status(400).json({ message: error.message || "Unable to create account." });
+      return res.status(503).json({ message: otpDeliveryMessage(error) });
     }
+    account.otpHash = hashOtp(otp);
+    account.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    account.otpAttempts = 0;
+    await account.save();
+    return res.json({ message: "OTP sent to your email address.", expiresIn: 600 });
   }
-  // Expiry is ten minutes after issuance; resend cooldown is only 45 seconds.
-  if (account.otpExpiresAt?.getTime() - 10 * 60 * 1000 > Date.now() - 45_000)
+
+  const mobile = mobileOf(req.body.mobile);
+  const username = String(req.body.username || "").trim().toLowerCase();
+  if (!/^[6-9][0-9]{9}$/.test(mobile))
+    return res.status(400).json({ message: "Enter a valid 10-digit mobile number." });
+  if (!/^[a-z0-9_]{3,30}$/.test(username))
+    return res.status(400).json({ message: "Username must be 3-30 letters, numbers, or underscores." });
+  const duplicate = await User.findOne({ $or: [{ email }, { mobile }, { username }] }).lean();
+  if (duplicate)
+    return res.status(409).json({ message: "This mobile number, username, or email is already registered. Please log in." });
+  let pending = await LoginOtp.findOne({ email }).select("+otpHash +otpExpiresAt +otpAttempts");
+  if (pending && pending.otpExpiresAt?.getTime() - 10 * 60 * 1000 > Date.now() - 45_000)
     return res
       .status(429)
       .json({
@@ -95,33 +145,36 @@ router.post("/otp/request", async (req, res) => {
   try {
     await sendLoginOtp(email, otp);
   } catch (error) {
-    if (createdAccount)
-      await User.deleteOne({ _id: account._id }).catch(() => null);
-    return res.status(503).json({ message: error.message });
+    return res.status(503).json({ message: otpDeliveryMessage(error) });
   }
   const otpFields = {
     otpHash: hashOtp(otp),
     otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
     otpAttempts: 0,
   };
-  Object.assign(account, otpFields);
-  await account.save();
+  if (pending) {
+    Object.assign(pending, { mobile, username, ...otpFields });
+    await pending.save();
+  } else {
+    await LoginOtp.create({ email, mobile, username, ...otpFields });
+  }
   res.json({
-    message: isSignup ? "Account created. OTP sent to your email address." : "OTP sent to your email address.",
+    message: "OTP sent to your email address.",
     expiresIn: 600,
   });
 });
 router.post("/otp/verify", async (req, res) => {
   if (!isDatabaseConnected()) return unavailable(res);
   const email = normaliseEmail(req.body.email),
-    otp = String(req.body.otp || "").trim();
+    otp = String(req.body.otp || "").trim(),
+    isSignup = req.body.signup === true;
   if (!validEmail(email) || !/^\d{6}$/.test(otp))
     return res
       .status(400)
       .json({ message: "Enter your email and the 6-digit OTP." });
-  const account = await User.findOne({ email }).select(
-    "+otpHash +otpExpiresAt +otpAttempts",
-  );
+  const account = isSignup
+    ? await LoginOtp.findOne({ email }).select("+otpHash +otpExpiresAt +otpAttempts")
+    : await User.findOne({ email }).select("+otpHash +otpExpiresAt +otpAttempts");
   if (
     !account?.otpHash ||
     !account.otpExpiresAt ||
@@ -141,16 +194,34 @@ router.post("/otp/verify", async (req, res) => {
       .status(401)
       .json({ message: "Incorrect OTP. Please try again." });
   }
-  account.otpHash = undefined;
-  account.otpExpiresAt = undefined;
-  account.otpAttempts = 0;
-  await account.save();
+  let userAccount = account;
+  if (isSignup) {
+    try {
+      userAccount = await User.create({
+        fullName: account.username,
+        mobile: account.mobile,
+        username: account.username,
+        email: account.email,
+        role: "user",
+      });
+      await LoginOtp.deleteOne({ _id: account._id });
+    } catch (error) {
+      if (error?.code === 11000)
+        return res.status(409).json({ message: "This mobile number, username, or email is already registered." });
+      return res.status(400).json({ message: error.message || "Unable to create account." });
+    }
+  } else {
+    account.otpHash = undefined;
+    account.otpExpiresAt = undefined;
+    account.otpAttempts = 0;
+    await account.save();
+  }
   const user = {
-    id: account._id.toString(),
-    fullName: account.fullName,
-    mobile: account.mobile,
-    email: account.email,
-    role: account.role || "user",
+    id: userAccount._id.toString(),
+    fullName: userAccount.fullName,
+    mobile: userAccount.mobile,
+    email: userAccount.email,
+    role: userAccount.role || "user",
   };
   res.json({ user, token: createUserSession(res, user) });
 });

@@ -60,9 +60,17 @@ async function transporter() {
   return nodemailer.createTransport({
     host,
     port,
-    secure:
-      settings?.smtpSecure ??
-      (process.env.SMTP_SECURE === "true" || port === 465),
+    // Port 465 starts with TLS; port 587 starts as plain SMTP and upgrades
+    // with STARTTLS. Using `secure: true` on 587 causes OpenSSL's
+    // "wrong version number" error and prevents OTP delivery.
+    secure: port === 465,
+    // Render instances in these logs have no usable IPv6 route to Gmail SMTP
+    // (`ENETUNREACH ... :587`).  Gmail also serves SMTP over IPv4, so resolve
+    // and connect through IPv4 explicitly instead of waiting for a timeout.
+    family: 4,
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 30_000,
     auth: { user, pass },
   });
 }
@@ -83,9 +91,7 @@ export async function sendLoginOtp(email, otp) {
     settings?.otpEmailSubject && !settings.otpEmailSubject.includes("@")
       ? settings.otpEmailSubject
       : `Your ${siteName} login OTP`;
-  await (
-    await transporter()
-  ).sendMail({
+  const result = await (await transporter()).sendMail({
     from,
     to: email,
     subject,
@@ -98,6 +104,11 @@ export async function sendLoginOtp(email, otp) {
       footer: `For your security, ${escapeHtml(siteName)} will never ask for this code by phone or message.`,
     }),
   });
+  // Nodemailer can resolve even when a recipient is rejected by the SMTP
+  // server. Treat that as a failure so the UI never claims an OTP was sent.
+  if (result.rejected?.length)
+    throw new Error("OTP email was rejected by the recipient mail server.");
+  console.info(`OTP email accepted by SMTP for ${email}; message ${result.messageId || "created"}.`);
 }
 
 export async function sendBookingEmail(booking) {
