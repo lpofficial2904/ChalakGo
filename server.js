@@ -115,7 +115,7 @@ app.use("/api/contacts", contactRoutes);
 app.use("/api", siteRoutes);
 app.use(apiErrorHandler);
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 5500;
 let server;
 
 async function isChalakGoApiRunning() {
