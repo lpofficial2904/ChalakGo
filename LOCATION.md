@@ -2,7 +2,7 @@
 
 The header and booking form automatically request location on page open/reload, as requested by the site owner. They share one acquisition to avoid duplicate calls, including React StrictMode remounts. Browser permission is still required. Explicit refresh requests a fresh acquisition. Up to three sequential, uncached high-accuracy fixes are attempted within approximately 30 seconds; acquisition stops early at 30-metre accuracy. The best reported reading is used for a single reverse lookup. There is no continuous tracking. Serve the frontend over HTTPS (localhost works for development). The device/browser controls permission and accuracy. Returned map address details can be missing or refer to a nearby mapped feature; customers must be able to review and edit them.
 
-In Vite development, customer login, bookings and location lookups use the `/api` proxy to `http://127.0.0.1:5000`. Keep the local backend running. `VITE_API_BASE_URL` can override the API explicitly. Production builds default to the existing Render API. Deploy backend and frontend changes together.
+In Vite development, customer login, bookings and location lookups use the `/api` proxy to `http://127.0.0.1:5000`. Keep the local backend running. `VITE_API_BASE_URL` can override the API explicitly. Production builds use `https://api.chalakgo.com`. Deploy backend and frontend changes together.
 
 The backend proxies Nominatim. Set `NOMINATIM_REVERSE_URL` to switch the reverse endpoint without a frontend release, and `NOMINATIM_USER_AGENT` to identify the application and a contact URL. No keys are required for the public OpenStreetMap endpoint.
 

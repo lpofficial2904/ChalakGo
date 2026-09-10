@@ -1,5 +1,5 @@
 const publicApiBase = (
-  process.env.PUBLIC_API_URL || "https://chalakgo.onrender.com"
+  process.env.PUBLIC_API_URL || "https://api.chalakgo.com"
 ).replace(/\/$/, "");
 
 function normalizeAssetUrl(url) {

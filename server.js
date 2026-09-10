@@ -85,6 +85,13 @@ const upload = multer({
 });
 app.use("/uploads", express.static(uploadDir));
 
+app.get("/", (_req, res) =>
+  res.json({
+    success: true,
+    message: "ChalakGo API is running",
+  }),
+);
+
 app.get("/api/health", (_req, res) =>
   res.json({
     ok: true,
