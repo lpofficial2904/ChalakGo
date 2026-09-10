@@ -31,17 +31,33 @@ const allowedOrigins = new Set([
   "http://127.0.0.1:5174",
   "https://chalakgo-admin.netlify.app",
   "https://chalakgoo.netlify.app",
+  "https://spectacular-druid-d51e06.netlify.app/",
+  "https://visionary-gaufre-b94cb4.netlify.app/",
   ...(process.env.CORS_ORIGINS || "")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),
 ]);
+const isAllowedOrigin = (origin) => {
+  if (!origin || allowedOrigins.has(origin)) return true;
+  // Netlify assigns a different preview URL for deployments. Allow only its
+  // HTTPS subdomains so a newly deployed customer site does not break CORS.
+  try {
+    const url = new URL(origin);
+    return (
+      url.protocol === "https:" &&
+      /^[a-z0-9-]+\.netlify\.app$/i.test(url.hostname)
+    );
+  } catch {
+    return false;
+  }
+};
 app.use(
   cors({
     origin(origin, callback) {
       // Requests without an Origin header (such as curl/health checks) are safe
       // to accept; browser requests must come from a configured app origin.
-      callback(null, !origin || allowedOrigins.has(origin));
+      callback(null, isAllowedOrigin(origin));
     },
     credentials: true,
   }),
