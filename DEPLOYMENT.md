@@ -3,7 +3,9 @@
 The frontend is hosted on Netlify and the API is hosted on Render. The API
 accepts HTTPS `*.netlify.app` deployment and preview origins automatically.
 
-For a custom domain, set this Render environment variable before redeploying:
+For the ChalakGo customer domain, CORS is handled in the backend. For any
+additional custom frontend domain, set this Render environment variable before
+redeploying:
 
 ```text
 CORS_ORIGINS=https://www.your-domain.com,https://your-domain.com

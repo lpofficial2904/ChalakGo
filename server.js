@@ -29,6 +29,9 @@ const allowedOrigins = new Set([
   "http://localhost:5174",
   "http://127.0.0.1:5173",
   "http://127.0.0.1:5174",
+  "https://chalakgo.com",
+  "https://www.chalakgo.com",
+  "https://admin.chalakgo.com",
   "https://chalakgo-admin.netlify.app",
   "https://chalakgoo.netlify.app",
   "https://spectacular-druid-d51e06.netlify.app/",
@@ -49,7 +52,13 @@ const isAllowedOrigin = (origin) => {
     const url = new URL(origin);
     return (
       url.protocol === "https:" &&
-      /^[a-z0-9-]+\.netlify\.app$/i.test(url.hostname)
+      (
+        // Customer, www and admin sites under the owned domain may call the
+        // API. The exact suffix check does not allow lookalike domains.
+        url.hostname === "chalakgo.com" ||
+        url.hostname.endsWith(".chalakgo.com") ||
+        /^[a-z0-9-]+\.netlify\.app$/i.test(url.hostname)
+      )
     );
   } catch {
     return false;
