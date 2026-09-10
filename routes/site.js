@@ -21,7 +21,7 @@ const defaultSettings = {
   heroText: "",
   topBarMessage:
     "Professional drivers for every journey · 24/7 booking support",
-  phone: "+91 98765 43210",
+  phone: "+91 97845 10845",
   email: "support@chalakgo.in",
   bookingEmail: "",
   bookingEmailSubject: "",
@@ -34,8 +34,8 @@ const defaultSettings = {
     "Virasat Homes, Scheme Number 4, Narayan Vihar, Jaipur, Rajasthan 302020, India",
   facebook: "",
   instagram: "",
-  whatsapp: "",
-  whatsappNumber: "",
+  whatsapp: "https://wa.me/919784510845",
+  whatsappNumber: "919784510845",
   linkedin: "",
   youtube: "",
   otpEmailFrom: "",
@@ -227,7 +227,20 @@ router.get("/settings", async (_req, res) => {
   if (!isDatabaseConnected()) return res.json(defaultSettings);
   // A migration can create this document before contact details are saved.
   // Always return complete settings to frontend consumers.
-  const storedSettings = (await SiteSettings.findOne().lean()) || {};
+  let storedSettings = (await SiteSettings.findOne().lean()) || {};
+  // Replace only the old placeholder contact details. Any number set through
+  // the admin panel is left untouched.
+  const contactUpdates = {};
+  if (!storedSettings.phone || storedSettings.phone === "+91 98765 43210")
+    contactUpdates.phone = defaultSettings.phone;
+  if (!storedSettings.whatsappNumber)
+    contactUpdates.whatsappNumber = defaultSettings.whatsappNumber;
+  if (!storedSettings.whatsapp)
+    contactUpdates.whatsapp = defaultSettings.whatsapp;
+  if (Object.keys(contactUpdates).length) {
+    await SiteSettings.findOneAndUpdate({}, { $set: contactUpdates }, { upsert: true });
+    storedSettings = { ...storedSettings, ...contactUpdates };
+  }
   const settings = { ...defaultSettings, ...storedSettings };
   delete settings.smtpPass;
   delete settings.whatsappAccessToken;
