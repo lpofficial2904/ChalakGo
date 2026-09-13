@@ -249,4 +249,12 @@ router.post("/logout", (_req, res) => {
   clearUserSession(res);
   res.status(204).end();
 });
+router.delete("/admin/:id", requireAdmin, async (req, res) => {
+  if (req.admin.id === req.params.id) return res.status(409).json({ message: "You cannot delete your own signed-in account." });
+  if (!isDatabaseConnected()) return res.status(503).json({ message: "Database is not connected." });
+  if (!/^[a-f0-9]{24}$/i.test(req.params.id)) return res.status(400).json({ message: "Invalid record ID." });
+  const deleted = await User.findByIdAndDelete(req.params.id);
+  if (!deleted) return res.status(404).json({ message: "Record not found." });
+  res.status(204).end();
+});
 export default router;

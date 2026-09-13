@@ -45,4 +45,11 @@ router.patch("/:id", requireAdmin, async (req, res) => {
   if (!item) return res.status(404).json({ message: "Message not found." });
   res.json(item);
 });
+router.delete("/admin/:id", requireAdmin, async (req, res) => {
+  if (!isDatabaseConnected()) return res.status(503).json({ message: "Database is not connected." });
+  if (!/^[a-f0-9]{24}$/i.test(req.params.id)) return res.status(400).json({ message: "Invalid record ID." });
+  const deleted = await ContactMessage.findByIdAndDelete(req.params.id);
+  if (!deleted) return res.status(404).json({ message: "Record not found." });
+  res.status(204).end();
+});
 export default router;

@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 const tourPlanSchema = new mongoose.Schema(
   {
-    days: { type: Number, required: true },
+    days: { type: Number, required: true, min: 1, validate: Number.isInteger },
     title: String,
     description: String,
     price: String,

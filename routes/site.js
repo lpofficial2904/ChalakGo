@@ -1,3 +1,4 @@
+import { ensureTermsPage } from "../utils/termsPage.js";
 import { Router } from "../utils/router.js";
 import { isDatabaseConnected } from "../db.js";
 import { requireAdmin } from "../middleware/auth.js";
@@ -343,6 +344,7 @@ router.delete("/services/:id", requireAdmin, async (req, res) => {
 
 router.get("/pages", async (_req, res) => {
   if (!isDatabaseConnected()) return res.json([]);
+  await ensureTermsPage();
   res.json(
     normalizeAssetUrls(
       await Page.find({ isPublished: true }).sort({ title: 1 }).lean(),
@@ -351,10 +353,12 @@ router.get("/pages", async (_req, res) => {
 });
 router.get("/page-status", async (_req, res) => {
   if (!assertDb(res)) return;
+  await ensureTermsPage();
   res.json(await Page.find().select("slug isPublished -_id").lean());
 });
 router.get("/pages/admin/all", requireAdmin, async (_req, res) => {
   if (!assertDb(res)) return;
+  await ensureTermsPage();
   res.json(
     normalizeAssetUrls(await Page.find().sort({ updatedAt: -1 }).lean()),
   );
