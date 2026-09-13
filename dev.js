@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
+import "./config/env.js";
+import { fileURLToPath } from "node:url";
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 5500;
 
 async function isChalakGoApiRunning() {
   try {
@@ -21,6 +23,7 @@ if (await isChalakGoApiRunning()) {
 
 const server = spawn(process.execPath, ["--watch", "server.js"], {
   stdio: "inherit",
+  cwd: fileURLToPath(new URL(".", import.meta.url)),
 });
 
 for (const signal of ["SIGINT", "SIGTERM"]) {

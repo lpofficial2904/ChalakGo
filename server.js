@@ -1,4 +1,6 @@
-import { config } from "dotenv";
+import "./config/env.js";
+import { fileURLToPath } from "node:url";
+import { mkdirSync } from "node:fs";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import express from "express";
@@ -19,9 +21,6 @@ import multer from "multer";
 import path from "path";
 import { apiErrorHandler } from "./utils/router.js";
 import { siteEvents, notifySiteChanges } from "./utils/siteEvents.js";
-
-// Use this project's .env values even if a stale shell variable exists.
-config({ override: true });
 
 const app = express();
 const allowedOrigins = new Set([
@@ -78,7 +77,8 @@ app.use(cookieParser());
 app.use(express.json());
 app.get("/api/events", siteEvents);
 app.use(notifySiteChanges);
-const uploadDir = path.resolve("uploads");
+const uploadDir = fileURLToPath(new URL("./uploads/", import.meta.url));
+mkdirSync(uploadDir, { recursive: true });
 const storage = multer.diskStorage({
   destination: uploadDir,
   filename: (_req, file, cb) =>

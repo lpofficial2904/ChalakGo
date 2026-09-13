@@ -9,8 +9,9 @@ import {
   requireAdmin,
   requireUser,
 } from "../middleware/auth.js";
-import { createHash, randomInt } from "node:crypto";
+import { createHash } from "node:crypto";
 import { sendLoginOtp } from "../utils/mailer.js";
+import { issueOtp } from "../utils/issueOtp.js";
 
 const router = Router();
 const mobileOf = (value) => String(value || "").replace(/\D/g, "");
@@ -112,16 +113,11 @@ router.post("/otp/request", async (req, res) => {
       return res.status(404).json({ message: "No account exists for this email. Please sign up first." });
     if (account.otpExpiresAt?.getTime() - 10 * 60 * 1000 > Date.now() - 45_000)
       return res.status(429).json({ message: "Please wait 45 seconds before requesting another OTP." });
-    const otp = String(randomInt(100000, 1000000));
     try {
-      await sendLoginOtp(email, otp);
+      await issueOtp({ Model: User, account, email, send: sendLoginOtp });
     } catch (error) {
-      return res.status(503).json({ message: otpDeliveryMessage(error) });
+      return res.status(error.status || 503).json({ message: otpDeliveryMessage(error) });
     }
-    account.otpHash = hashOtp(otp);
-    account.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-    account.otpAttempts = 0;
-    await account.save();
     return res.json({ message: "OTP sent to your email address.", expiresIn: 600 });
   }
 
@@ -141,22 +137,10 @@ router.post("/otp/request", async (req, res) => {
       .json({
         message: "Please wait 45 seconds before requesting another OTP.",
       });
-  const otp = String(randomInt(100000, 1000000));
   try {
-    await sendLoginOtp(email, otp);
+    await issueOtp({ Model: LoginOtp, account: pending, details: { mobile, username }, email, send: sendLoginOtp });
   } catch (error) {
-    return res.status(503).json({ message: otpDeliveryMessage(error) });
-  }
-  const otpFields = {
-    otpHash: hashOtp(otp),
-    otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    otpAttempts: 0,
-  };
-  if (pending) {
-    Object.assign(pending, { mobile, username, ...otpFields });
-    await pending.save();
-  } else {
-    await LoginOtp.create({ email, mobile, username, ...otpFields });
+    return res.status(error.status || 503).json({ message: otpDeliveryMessage(error) });
   }
   res.json({
     message: "OTP sent to your email address.",
