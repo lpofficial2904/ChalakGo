@@ -1,14 +1,27 @@
 import mongoose from "mongoose";
+const imageField = {
+  type: String,
+  trim: true,
+  validate: {
+    validator(value) {
+      if (!value) return true;
+      if (/^\/(?!\/)/.test(value)) return true;
+      try { return ["https:", "http:"].includes(new URL(value).protocol); }
+      catch { return false; }
+    },
+    message: "Upload an image or enter a complete http(s) image URL.",
+  },
+};
 const schema = new mongoose.Schema(
   {
     siteName: String,
-    logo: String,
-    navbarLogo: String,
-    footerLogo: String,
-    mainFavicon: String,
-    adminFavicon: String,
-    heroImage: String,
-    aboutHeroImage: String,
+    logo: imageField,
+    navbarLogo: imageField,
+    footerLogo: imageField,
+    mainFavicon: imageField,
+    adminFavicon: imageField,
+    heroImage: imageField,
+    aboutHeroImage: imageField,
     heroTitle: String,
     heroText: String,
     topBarMessage: String,
