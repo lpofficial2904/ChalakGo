@@ -28,6 +28,8 @@ const schema = new mongoose.Schema(
     },
     eyebrow: String,
     detail: String,
+    content: String,
+    pageContent: { type: Map, of: String },
     features: [String],
     image: String,
     tourPlans: [tourPlanSchema],

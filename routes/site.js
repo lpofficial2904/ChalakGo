@@ -6,9 +6,21 @@ import Service from "../models/Service.js";
 import SiteSettings from "../models/SiteSettings.js";
 import Page from "../models/Page.js";
 import Blog from "../models/Blog.js";
+import Booking from '../models/Booking.js';
+import ContactMessage from '../models/ContactMessage.js';
+import { publicationCounts, pageCounts, requestCounts } from '../utils/dashboard.js';
 import { normalizeAssetUrls } from "../utils/assets.js";
 
 const router = Router();
+router.get('/admin/dashboard', requireAdmin, async (_req, res) => {
+  const now = new Date();
+  const [services, pages, blogs, bookings, contacts] = await Promise.all([
+    Service.find().select('isActive').lean(), Page.find().select('slug isPublished').lean(),
+    Blog.find().select('isPublished').lean(), requestCounts(Booking, now), requestCounts(ContactMessage, now),
+  ]);
+  res.set('Cache-Control', 'no-store');
+  res.json({ services: publicationCounts(services, 'isActive'), pages: pageCounts(pages), blogs: publicationCounts(blogs, 'isPublished'), bookings, contacts, updatedAt: now.toISOString() });
+});
 const defaultSettings = {
   siteName: "ChalakGo",
   logo: "",
@@ -387,7 +399,7 @@ router.get("/blogs", async (_req, res) => {
   res.json(
     normalizeAssetUrls(
       await Blog.find({ isPublished: true })
-        .sort({ publishedAt: -1, createdAt: -1 })
+        .sort({ isFeatured: -1, publishedAt: -1, createdAt: -1 })
         .lean(),
     ),
   );

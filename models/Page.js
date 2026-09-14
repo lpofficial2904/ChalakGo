@@ -14,6 +14,8 @@ const schema = new mongoose.Schema(
     heroTitle: { type: String, trim: true },
     excerpt: { type: String, trim: true },
     content: { type: String, default: "" },
+    copy: { type: Map, of: String },
+    preserveLayout: { type: Boolean, default: false },
     seoTitle: { type: String, trim: true },
     seoDescription: { type: String, trim: true },
     isPublished: { type: Boolean, default: true },
