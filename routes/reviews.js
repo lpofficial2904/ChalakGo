@@ -1,3 +1,5 @@
+import { siteCache } from "../utils/siteCache.js";
+import { isDatabaseConnected } from "../db.js";
 import { Router } from "../utils/router.js";
 import Review from "../models/Review.js";
 import { requireAdmin } from "../middleware/auth.js";
@@ -6,11 +8,12 @@ import { normalizeAssetUrls } from "../utils/assets.js";
 const router = Router();
 
 router.get("/", async (_req, res) => {
-  const reviews = await Review.find({ isPublished: true }).sort({
+  if (!isDatabaseConnected()) return res.status(503).json({ message: "Reviews are temporarily unavailable." });
+  const reviews = await siteCache.get("reviews", () => Review.find({ isPublished: true }).sort({
     isFeatured: -1,
     createdAt: -1,
-  });
-  res.json(normalizeAssetUrls(reviews.map((review) => review.toObject())));
+  }).lean());
+  res.json(normalizeAssetUrls(reviews));
 });
 
 router.get("/admin", requireAdmin, async (_req, res) => {

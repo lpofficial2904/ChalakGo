@@ -4,6 +4,8 @@ import { mkdirSync } from "node:fs";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import express from "express";
+import { responseCompression } from "./utils/responseCompression.js";
+import { imageVariants } from "./utils/imageVariants.js";
 import {
   connectDatabaseWithRetry,
   disconnectDatabase,
@@ -21,6 +23,7 @@ import multer from "multer";
 import path from "path";
 import { apiErrorHandler } from "./utils/router.js";
 import { siteEvents, notifySiteChanges } from "./utils/siteEvents.js";
+import { adminEvents } from "./utils/adminEvents.js";
 
 const app = express();
 const allowedOrigins = new Set([
@@ -74,7 +77,9 @@ app.use(
   }),
 );
 app.use(cookieParser());
+app.use(responseCompression());
 app.use(express.json());
+app.get("/api/admin/events", requireAdmin, adminEvents);
 app.get("/api/events", siteEvents);
 app.use(notifySiteChanges);
 const uploadDir = fileURLToPath(new URL("./uploads/", import.meta.url));
@@ -93,7 +98,13 @@ const upload = multer({
   fileFilter: (_req, file, cb) =>
     cb(null, /^image\/(jpeg|png|webp|gif)$/.test(file.mimetype)),
 });
-app.use("/uploads", express.static(uploadDir));
+app.get("/uploads/:filename", imageVariants(uploadDir));
+app.use("/uploads", express.static(uploadDir, {
+  maxAge: "1d",
+  setHeaders(res, file) {
+    if (/^\d+-\d+\./.test(path.basename(file))) res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  },
+}));
 
 app.get("/", (_req, res) =>
   res.json({

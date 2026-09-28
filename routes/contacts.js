@@ -4,12 +4,14 @@ import { requireAdmin } from "../middleware/auth.js";
 import { isDatabaseConnected } from "../db.js";
 import { sendContactMessage } from "../utils/mailer.js";
 import { sendWhatsAppText } from "../utils/whatsapp.js";
+import { notifyAdminRequests } from "../utils/adminEvents.js";
 const router = Router();
 router.post("/", async (req, res) => {
   if (!isDatabaseConnected())
     return res.status(503).json({ message: "Contact service is unavailable." });
   try {
     const message = await ContactMessage.create(req.body);
+    notifyAdminRequests();
     let emailSent = false;
     let whatsappSent = false;
     try {

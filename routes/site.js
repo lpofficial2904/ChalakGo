@@ -1,3 +1,5 @@
+import { siteCache } from "../utils/siteCache.js";
+import { driverPricing, validateDriverPricing } from "../../shared/driverPricing.js";
 import { ensureTermsPage } from "../utils/termsPage.js";
 import { Router } from "../utils/router.js";
 import { isDatabaseConnected } from "../db.js";
@@ -167,7 +169,13 @@ const defaultServices = [
 
 // One-time migration: services that used to live in the React component are
 // copied into MongoDB, without overwriting anything an admin has already edited.
-async function importDefaultServices() {
+let serviceImport;
+function importDefaultServices() {
+  if (!isDatabaseConnected()) return Promise.resolve();
+  if (!serviceImport) serviceImport = runServiceImport().catch((error) => { serviceImport = undefined; throw error; });
+  return serviceImport;
+}
+async function runServiceImport() {
   if (!isDatabaseConnected()) return;
   const settings = await SiteSettings.findOne().lean();
   if (settings?.defaultServicesImported) return;
@@ -240,7 +248,7 @@ router.get("/settings", async (_req, res) => {
   if (!isDatabaseConnected()) return res.json(defaultSettings);
   // A migration can create this document before contact details are saved.
   // Always return complete settings to frontend consumers.
-  let storedSettings = (await SiteSettings.findOne().lean()) || {};
+  let storedSettings = (await siteCache.get("settings", () => SiteSettings.findOne().lean())) || {};
   // Replace only the old placeholder contact details. Any number set through
   // the admin panel is left untouched.
   const contactUpdates = {};
@@ -252,6 +260,7 @@ router.get("/settings", async (_req, res) => {
     contactUpdates.whatsapp = defaultSettings.whatsapp;
   if (Object.keys(contactUpdates).length) {
     await SiteSettings.findOneAndUpdate({}, { $set: contactUpdates }, { upsert: true });
+    siteCache.clear();
     storedSettings = { ...storedSettings, ...contactUpdates };
   }
   const settings = { ...defaultSettings, ...storedSettings };
@@ -325,7 +334,7 @@ router.get("/services", async (_req, res) => {
   await importDefaultServices();
   res.json(
     normalizeAssetUrls(
-      await Service.find({ isActive: true }).sort({ name: 1 }).lean(),
+      await siteCache.get("services", async () => (await Service.find({ isActive: true }).sort({ name: 1 }).lean()).map(service => service.slug === "driver-only" ? { ...service, driverPricing: driverPricing(service.driverPricing) } : service)),
     ),
   );
 });
@@ -336,11 +345,19 @@ router.get("/services/admin", requireAdmin, async (_req, res) => {
 });
 router.post("/services", requireAdmin, async (req, res) => {
   if (!assertDb(res)) return;
+  if (req.body.driverPricing) {
+    try { req.body.driverPricing = validateDriverPricing(req.body.driverPricing); }
+    catch (error) { return res.status(400).json({ message: error.message }); }
+  }
   res.status(201).json(await Service.create(req.body));
 });
 router.put("/services/:id", requireAdmin, async (req, res) => {
   if (!assertDb(res)) return;
   const { _id, createdAt, updatedAt, __v, ...updates } = req.body || {};
+  if (updates.driverPricing) {
+    try { updates.driverPricing = validateDriverPricing(updates.driverPricing); }
+    catch (error) { return res.status(400).json({ message: error.message }); }
+  }
   const service = await Service.findByIdAndUpdate(req.params.id, updates, {
     new: true,
     runValidators: true,
@@ -359,14 +376,14 @@ router.get("/pages", async (_req, res) => {
   await ensureTermsPage();
   res.json(
     normalizeAssetUrls(
-      await Page.find({ isPublished: true }).sort({ title: 1 }).lean(),
+      await siteCache.get("pages", () => Page.find({ isPublished: true }).sort({ title: 1 }).lean()),
     ),
   );
 });
 router.get("/page-status", async (_req, res) => {
   if (!assertDb(res)) return;
   await ensureTermsPage();
-  res.json(await Page.find().select("slug isPublished -_id").lean());
+  res.json(await siteCache.get("page-status", () => Page.find().select("slug isPublished -_id").lean()));
 });
 router.get("/pages/admin/all", requireAdmin, async (_req, res) => {
   if (!assertDb(res)) return;
@@ -398,9 +415,9 @@ router.get("/blogs", async (_req, res) => {
   if (!isDatabaseConnected()) return res.json([]);
   res.json(
     normalizeAssetUrls(
-      await Blog.find({ isPublished: true })
+      await siteCache.get("blogs", () => Blog.find({ isPublished: true })
         .sort({ isFeatured: -1, publishedAt: -1, createdAt: -1 })
-        .lean(),
+        .lean()),
     ),
   );
 });
@@ -432,15 +449,15 @@ router.delete("/blogs/:id", requireAdmin, async (req, res) => {
 router.get("/blogs/:slug", async (req, res) => {
   if (!isDatabaseConnected())
     return res.status(404).json({ message: "Blog post not found." });
-  const blog = await Blog.findOne({ slug: req.params.slug, isPublished: true });
+  const blog = await siteCache.get(`blog:${req.params.slug}`, () => Blog.findOne({ slug: req.params.slug, isPublished: true }).lean());
   if (!blog) return res.status(404).json({ message: "Blog post not found." });
   res.json(blog);
 });
 router.get("/pages/:slug", async (req, res) => {
   if (!isDatabaseConnected())
     return res.status(404).json({ message: "Page not found." });
-  const page = await Page.findOne({ slug: req.params.slug, isPublished: true });
+  const page = await siteCache.get(`page:${req.params.slug}`, () => Page.findOne({ slug: req.params.slug, isPublished: true }).lean());
   if (!page) return res.status(404).json({ message: "Page not found." });
-  res.json(normalizeAssetUrls(page.toObject()));
+  res.json(normalizeAssetUrls(page));
 });
 export default router;

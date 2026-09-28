@@ -1,3 +1,4 @@
+import { siteCache } from "./siteCache.js";
 import { randomUUID } from "node:crypto";
 const clients = new Set();
 let revision = randomUUID();
@@ -27,6 +28,7 @@ export function notifySiteChanges(req, res, next) {
           req.originalUrl,
         )
       ) {
+        siteCache.clear();
         revision = randomUUID();
         for (const client of clients)
           client.write(`data: ${JSON.stringify({ revision })}\n\n`);

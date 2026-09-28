@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
+import { driverPricingSchema } from "./driverPricingSchema.js";
 import {
+  calculateDriverOnlyFare,
   calculateDistanceFare,
   calculateFixedFare,
   calculateMonthlyFare,
@@ -86,6 +88,10 @@ const bookingSchema = new mongoose.Schema(
       enum: ["gps", "manually_adjusted_pin", "manual"],
     },
     duration: { type: String, required: true },
+    serviceSlug: String,
+    driverPricing: { type: driverPricingSchema, default: undefined },
+    driverPackage: { type: String, enum: ["4", "8", "10", "12", "outstation"], default: "8" },
+    nightCharge: { type: Boolean, default: false },
     durationMinutes: Number,
     totalFare: Number,
     servicePrice: String,
@@ -111,10 +117,12 @@ const bookingSchema = new mongoose.Schema(
 );
 
 bookingSchema.pre("validate", function () {
-  if (!this.servicePrice && this.service !== "Driver Only") return;
+  if (!this.servicePrice && this.service !== "Driver Only" && this.serviceSlug !== "driver-only") return;
   try {
     const fare =
-      this.pricingType === "distance"
+      (this.serviceSlug === "driver-only" || this.service === "Driver Only")
+        ? calculateDriverOnlyFare(this)
+        : this.pricingType === "distance"
         ? calculateDistanceFare(this)
         : this.pricingType === "monthly"
           ? calculateMonthlyFare(this)

@@ -4,6 +4,7 @@ import Booking from "../models/Booking.js";
 import User from "../models/User.js";
 import { requireUser } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/auth.js";
+import { notifyAdminRequests } from "../utils/adminEvents.js";
 import { generateBookingId } from "../utils/bookingId.js";
 import Service from "../models/Service.js";
 import { sendBookingEmail, sendCustomerBookingEmail } from "../utils/mailer.js";
@@ -59,11 +60,23 @@ router.post("/", requireUser, async (req, res) => {
         formattedAddress: payload.pickup?.formattedAddress || pickupAddress,
       };
     }
+    // Pricing configuration must come from the saved service, never the client.
+    delete payload.driverPricing;
+    delete payload.serviceSlug;
     if (payload.service) {
       const service = await Service.findOne({
         name: payload.service,
         isActive: true,
       }).lean();
+      if (service) {
+        payload.serviceSlug = service.slug;
+        if (service.slug === "driver-only") {
+          payload.driverPricing = service.driverPricing;
+          // Night applicability is calculated from the schedule, not a stale
+          // checkbox value sent by an older frontend.
+          payload.nightCharge = false;
+        }
+      }
       if (service?.price) payload.servicePrice = service.price;
       if (service?.pricingType) payload.pricingType = service.pricingType;
       if (service?.vehicleRates) payload.vehicleRates = service.vehicleRates;
@@ -160,6 +173,7 @@ router.post("/", requireUser, async (req, res) => {
       }
     }
     // Store and confirm the booking before sending optional notifications.
+    notifyAdminRequests();
     // SMTP/WhatsApp providers can be slow or unavailable; waiting for them
     // kept the customer UI stuck indefinitely on "Saving your booking...".
     res.status(201).json({

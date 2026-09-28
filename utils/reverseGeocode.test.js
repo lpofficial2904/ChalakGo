@@ -107,5 +107,5 @@ test("booking schema preserves edited structured address and coordinates", async
   assert.equal(booking.pickup.district, form.district);
   assert.equal(booking.pickup.formattedAddress, form.address);
   assert.equal(booking.pickupLatitude, 12.3456789);
-  assert.equal(booking.totalFare, 1000);
+  assert.equal(booking.totalFare, 899);
 });

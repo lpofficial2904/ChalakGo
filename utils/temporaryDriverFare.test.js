@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   calculateDistanceFare,
+  calculateDriverOnlyFare,
   calculateMonthlyFare,
   calculateTemporaryDriverFare,
 } from "./temporaryDriverFare.js";
@@ -122,7 +123,20 @@ test("booking validation replaces client fare with the server calculation", asyn
     durationMinutes: 451,
   });
   await booking.validate();
-  assert.equal(booking.totalFare, 1000);
+  assert.equal(booking.totalFare, 899);
   assert.equal(booking.durationMinutes, 361);
   assert.equal(booking.duration, "6 hours 1 minutes");
 });
+
+ test("driver-only packages, overtime, night and outstation match in browser and API", async () => {
+ const { calculateDriverOnlyFare: browserFare } = await import("../../frontend/src/utils/fare.js");
+ for (const [driverPackage, hours, nightCharge, expected, max] of [
+ ["4",4,false,499,499],["8",8,false,899,899],["8",9,false,998,998],
+ ["10",10,false,1099,1099],["12",12,false,1299,1299],["12",13,true,1598,1598],
+ ["outstation",48,true,2600,2600]]) {
+ const input = {driverPackage, nightCharge, startDateTime:"2026-09-08T08:00",endDateTime:new Date(Date.UTC(2026,8,8,8)+hours*3600000).toISOString().slice(0,16)};
+ const fare = calculateDriverOnlyFare(input);
+ assert.equal(fare.totalFare,expected); assert.equal(fare.maximumFare,max);
+ assert.deepEqual(browserFare(input),fare);
+ }
+ });

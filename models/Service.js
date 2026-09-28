@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { driverPricingSchema } from "../schemas/driverPricingSchema.js";
 const tourPlanSchema = new mongoose.Schema(
   {
     days: { type: Number, required: true, min: 1, validate: Number.isInteger },
@@ -20,6 +21,7 @@ const schema = new mongoose.Schema(
       enum: ["hourly", "daily", "distance", "monthly", "fixed"],
       default: "hourly",
     },
+    driverPricing: { type: driverPricingSchema, default: undefined },
     vehicleRates: { suv: Number, hatchback: Number, traveller: Number },
     monthlyRates: {
       sixToEight: Number,

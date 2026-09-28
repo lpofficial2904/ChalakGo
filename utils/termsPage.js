@@ -3,7 +3,12 @@ import Page from "../models/Page.js";
 
 const content = readFileSync(new URL("../content/terms.txt", import.meta.url), "utf8");
 
-export async function ensureTermsPage() {
+let initialization;
+export function ensureTermsPage() {
+  if (!initialization) initialization = insertTermsPage().catch((error) => { initialization = undefined; throw error; });
+  return initialization;
+}
+async function insertTermsPage() {
   // Insert the supplied starting copy once. Never overwrite admin edits or
   // the publication status on subsequent requests/redeploys.
   await Page.updateOne({ slug: "terms-and-conditions" }, { $setOnInsert: {
