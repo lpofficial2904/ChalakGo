@@ -248,21 +248,22 @@ router.get("/settings", async (_req, res) => {
   if (!isDatabaseConnected()) return res.json(defaultSettings);
   // A migration can create this document before contact details are saved.
   // Always return complete settings to frontend consumers.
-  let storedSettings = (await siteCache.get("settings", () => SiteSettings.findOne().lean())) || {};
+  const storedSettings = await siteCache.get("settings", async () => {
+  const stored = (await SiteSettings.findOne().lean()) || {};
   // Replace only the old placeholder contact details. Any number set through
   // the admin panel is left untouched.
   const contactUpdates = {};
-  if (!storedSettings.phone || storedSettings.phone === "+91 98765 43210")
+  if (!stored.phone || stored.phone === "+91 98765 43210")
     contactUpdates.phone = defaultSettings.phone;
-  if (!storedSettings.whatsappNumber)
+  if (!stored.whatsappNumber)
     contactUpdates.whatsappNumber = defaultSettings.whatsappNumber;
-  if (!storedSettings.whatsapp)
+  if (!stored.whatsapp)
     contactUpdates.whatsapp = defaultSettings.whatsapp;
   if (Object.keys(contactUpdates).length) {
     await SiteSettings.findOneAndUpdate({}, { $set: contactUpdates }, { upsert: true });
-    siteCache.clear();
-    storedSettings = { ...storedSettings, ...contactUpdates };
   }
+  return { ...stored, ...contactUpdates };
+  });
   const settings = { ...defaultSettings, ...storedSettings };
   delete settings.smtpPass;
   delete settings.whatsappAccessToken;
@@ -293,7 +294,7 @@ router.get("/settings", async (_req, res) => {
 });
 router.get("/hero-image", async (_req, res) => {
   const settings = isDatabaseConnected()
-    ? await SiteSettings.findOne().lean()
+    ? await siteCache.get("settings", () => SiteSettings.findOne().lean())
     : null;
   res.redirect(
     normalizeAssetUrls(

@@ -5,7 +5,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import express from "express";
 import { responseCompression } from "./utils/responseCompression.js";
-import { imageVariants } from "./utils/imageVariants.js";
+import { imageVariants, prepareImageVariants } from "./utils/imageVariants.js";
 import {
   connectDatabaseWithRetry,
   disconnectDatabase,
@@ -120,7 +120,7 @@ app.get("/api/health", (_req, res) =>
   }),
 );
 app.post("/api/uploads", requireAdmin, (req, res) =>
-  upload.single("image")(req, res, (error) => {
+  upload.single("image")(req, res, async (error) => {
     if (error)
       return res
         .status(400)
@@ -131,6 +131,8 @@ app.post("/api/uploads", requireAdmin, (req, res) =>
       return res
         .status(400)
         .json({ message: "Please select a JPG, PNG, WEBP, or GIF image." });
+    try { await prepareImageVariants(uploadDir, req.file.filename); }
+    catch (error) { console.error("Image optimization failed:", error.message); }
     res.status(201).json({ url: `/uploads/${req.file.filename}` });
   }),
 );

@@ -1,5 +1,17 @@
 # Production deployment
 
+## Responsive image deployment
+
+After installing dependencies on the VPS, run `npm run images:optimize` once to
+prepare existing uploads, then restart the backend. New image uploads prepare
+their WebP sizes before the upload response; originals remain unchanged.
+The generated `uploads/.variants` files are local disk cache, not source files.
+
+Apply the `/uploads/` location in `deploy/api-nginx.conf` to the API server block
+if aaPanel has static image rules, then validate with `nginx -t` before reloading.
+Check an existing upload with `?w=640`: it must return `Content-Type: image/webp`,
+not the original PNG. Deploy the frontend build too for the smaller avatar sizes.
+
 ## VPS / aaPanel (chalakgo.com)
 
 The live `/api/health` check returned JSON with database connected but no
