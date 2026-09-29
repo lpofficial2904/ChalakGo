@@ -1,5 +1,5 @@
 import { siteCache } from "../utils/siteCache.js";
-import { driverPricing, validateDriverPricing } from "../../shared/driverPricing.js";
+import { driverPricing, validateDriverPricing } from "../shared/driverPricing.js";
 import { ensureTermsPage } from "../utils/termsPage.js";
 import { Router } from "../utils/router.js";
 import { isDatabaseConnected } from "../db.js";

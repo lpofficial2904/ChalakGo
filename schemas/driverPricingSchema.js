@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { validateDriverPricing } from "../../shared/driverPricing.js";
+import { validateDriverPricing } from "../shared/driverPricing.js";
 
 const plan = new mongoose.Schema({
   id: { type: String, required: true, enum: ["4", "8", "10", "12", "outstation"] },

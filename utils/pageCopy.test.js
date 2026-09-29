@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import Page from '../models/Page.js';
-import { pageCopyKey } from '../../shared/pageCopyKey.js';
+import { pageCopyKey } from '../shared/pageCopyKey.js';
 
 test('page copy survives storage serialization, including intentionally empty text', async () => {
   const page = new Page({ title: 'About', slug: 'about', preserveLayout: true, copy: { text_1: 'Our story', text_2: '', [pageCopyKey('Original card')]: 'Updated card' } });

@@ -10,7 +10,7 @@ import AdminCredentials from "../models/AdminCredentials.js";
 import { notifySiteChanges } from "./siteEvents.js";
 import { siteCache } from "./siteCache.js";
 import { apiErrorHandler } from "./router.js";
-import { DEFAULT_DRIVER_PRICING } from "../../shared/driverPricing.js";
+import { DEFAULT_DRIVER_PRICING } from "../shared/driverPricing.js";
 
 test("admin API saves plans, refreshes public cached prices and rejects invalid rates", async (t) => {
   const previousState = mongoose.connection.readyState;

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_DRIVER_PRICING, calculateDriverOnlyFare, validateDriverPricing, driverPricing } from "../../shared/driverPricing.js";
+import { DEFAULT_DRIVER_PRICING, calculateDriverOnlyFare, validateDriverPricing, driverPricing } from "../shared/driverPricing.js";
 import Service from "../models/Service.js";
 import Booking from "../models/Booking.js";
 

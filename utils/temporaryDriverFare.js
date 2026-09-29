@@ -58,7 +58,7 @@ export function calculateTemporaryDriverFare({ startDateTime, endDateTime }) {
   };
 }
 
-export { calculateDriverOnlyFare } from "../../shared/driverPricing.js";
+export { calculateDriverOnlyFare } from "../shared/driverPricing.js";
 
 export function calculateDistanceFare({ distanceKm, carType, vehicleRates }) {
   const distance = Number(distanceKm);
