@@ -14,7 +14,7 @@ export async function requireAdmin(req, res, next) {
       req.cookies?.[cookieName] ||
       req.headers.authorization?.replace(/^Bearer\s+/i, "");
     if (!token) return res.status(401).json({ message: "Login required." });
-    req.admin = jwt.verify(token, secret());
+    req.admin = jwt.verify(token, secret());                                                                            
     if (req.admin.role !== "admin")
       return res.status(403).json({ message: "Admin access required." });
     if (!isDatabaseConnected()) return res.status(503).json({ message: "Database is not connected." });
