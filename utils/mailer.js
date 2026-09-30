@@ -1,3 +1,4 @@
+import { formatBookingEstimate } from "./bookingEstimate.js";
 import nodemailer from "nodemailer";
 import SiteSettings from "../models/SiteSettings.js";
 
@@ -29,7 +30,7 @@ const bookingValues = (booking, siteName) => ({
   startDateTime: booking.startDateTime || booking.startDate || "",
   endDateTime: booking.endDateTime || booking.endDate || "",
   distance: booking.distanceKm ? `${booking.distanceKm} km` : "",
-  fare: booking.totalFare ? `Rs. ${booking.totalFare}` : booking.tourPlanPrice || "",
+  fare: formatBookingEstimate(booking),
 });
 
 const replaceBookingTokens = (template, values) =>
@@ -127,11 +128,11 @@ export async function sendBookingEmail(booking) {
   const subject =
     settings?.bookingEmailSubject ||
     `${siteName} booking: ${booking.service} - ${booking.fullName}`;
-  const text = `New booking\n\nBooking ID: ${booking.bookingId}\nService: ${booking.service}\nName: ${booking.fullName}\nPhone: ${booking.phone}\nEmail: ${booking.email}\nPickup: ${booking.pickupAddress || booking.pickupLocation || booking.address}\nDuration: ${booking.duration}\nCar type: ${booking.carType}\nTotal fare: ${booking.totalFare || "Not calculated"}`;
+  const text = `New booking\n\nBooking ID: ${booking.bookingId}\nService: ${booking.service}\nName: ${booking.fullName}\nPhone: ${booking.phone}\nEmail: ${booking.email}\nPickup: ${booking.pickupAddress || booking.pickupLocation || booking.address}\nDuration: ${booking.duration}\nCar type: ${booking.carType}\nTOTAL ESTIMATE: ${formatBookingEstimate(booking)}`;
   const rows = [
     ["Booking ID", booking.bookingId], ["Service", booking.service], ["Customer", booking.fullName],
     ["Mobile", booking.phone], ["Email", booking.email], ["Pickup", booking.pickupAddress || booking.pickupLocation || booking.address],
-    ["Duration", booking.duration], ["Vehicle", booking.carType], ["Estimated fare", booking.totalFare ? `Rs. ${booking.totalFare}` : "Not calculated"],
+    ["Duration", booking.duration], ["Vehicle", booking.carType], ["TOTAL ESTIMATE", formatBookingEstimate(booking)],
   ].filter(([, value]) => value !== undefined && value !== null && value !== "");
   await (
     await transporter()
@@ -185,8 +186,8 @@ export async function sendCustomerBookingEmail(booking, recipient) {
     ["Pickup latitude", booking.pickupLatitude],
     ["Pickup longitude", booking.pickupLongitude],
     [
-      "Estimated fare",
-      booking.totalFare ? `₹${booking.totalFare}` : booking.tourPlanPrice,
+      "TOTAL ESTIMATE",
+      formatBookingEstimate(booking),
     ],
   ].filter(
     ([, value]) => value !== undefined && value !== null && value !== "",
