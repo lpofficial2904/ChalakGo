@@ -1,8 +1,6 @@
 import { Router } from "../utils/router.js";
 import { isDatabaseConnected } from "../db.js";
 import Booking from "../models/Booking.js";
-import User from "../models/User.js";
-import { requireUser } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { notifyAdminRequests } from "../utils/adminEvents.js";
 import { generateBookingId } from "../utils/bookingId.js";
@@ -12,7 +10,7 @@ import { sendWhatsAppText } from "../utils/whatsapp.js";
 
 const router = Router();
 
-router.post("/", requireUser, async (req, res) => {
+router.post("/", async (req, res) => {
   if (!isDatabaseConnected()) {
     return res
       .status(503)
@@ -22,24 +20,12 @@ router.post("/", requireUser, async (req, res) => {
       });
   }
   try {
-    // Tokens issued by an older deployment may not contain email/name/mobile.
-    // Reload the account so booking data always comes from the signed-in user.
-    const account = req.user.id
-      ? await User.findById(req.user.id).lean()
-      : null;
-    const accountEmail = account?.email || req.user.email || req.body.email;
-    const accountName = account?.fullName || req.user.fullName || req.body.fullName;
-    const accountMobile = account?.mobile || req.user.mobile || req.body.phone;
-    if (!accountEmail)
-      return res.status(401).json({
-        message: "Your account email is missing. Please log out and sign in again.",
-      });
+    const accountEmail = req.body.email;
     const payload = {
       ...req.body,
-      // A confirmation must always go to, and be recorded against, the signed-in account.
       email: accountEmail,
-      fullName: req.body.fullName || accountName,
-      phone: req.body.phone || accountMobile,
+      fullName: req.body.fullName,
+      phone: req.body.phone,
     };
     // A GPS reading is useful even when reverse geocoding has no address.
     // Older Netlify builds sent its coordinate fallback only as `address`,
@@ -187,9 +173,9 @@ router.post("/", requireUser, async (req, res) => {
     const bookingData = booking.toObject();
     void Promise.allSettled([
       sendBookingEmail(bookingData),
-      sendCustomerBookingEmail(bookingData, accountEmail),
+      accountEmail ? sendCustomerBookingEmail(bookingData, accountEmail) : Promise.resolve(false),
       sendWhatsAppText(
-        `New ChalakGo booking\n\nBooking ID: ${booking.bookingId}\nService: ${booking.service}\nName: ${booking.fullName}\nPhone: ${booking.phone}\nEmail: ${booking.email}\nPickup: ${booking.pickupAddress || booking.pickupLocation || booking.address}\nDuration: ${booking.duration}\nCar type: ${booking.carType}\nTotal fare: ${booking.totalFare || "Not calculated"}`,
+        `New ChalakGo booking\n\nBooking ID: ${booking.bookingId}\nService: ${booking.service}\nName: ${booking.fullName}\nPhone: ${booking.phone}\nEmail: ${booking.email || "Not provided"}\nPickup: ${booking.pickupAddress || booking.pickupLocation || booking.address}\nDuration: ${booking.duration}\nCar type: ${booking.carType}\nTotal fare: ${booking.totalFare || "Not calculated"}`,
       ),
     ]).then((results) => {
       const labels = ["Booking email", "Customer booking email", "Booking WhatsApp notification"];

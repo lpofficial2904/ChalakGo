@@ -44,7 +44,7 @@ const bookingSchema = new mongoose.Schema(
       required: true,
       match: [/^[6-9][0-9]{9}$/, "Enter a valid 10-digit Indian mobile number"],
     },
-    email: { type: String, required: true, lowercase: true, trim: true },
+    email: { type: String, lowercase: true, trim: true },
     service: { type: String, required: true, trim: true },
     pickup: { type: pickupSchema, required: true },
     city: { type: String, trim: true },
