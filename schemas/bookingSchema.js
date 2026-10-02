@@ -34,10 +34,23 @@ const pickupSchema = new mongoose.Schema(
   },
   { _id: false },
 );
+const cabPlanSchema = new mongoose.Schema({
+  key: String, name: String, carType: String, seats: String, description: String,
+  baseFare: Number, includedKm: Number, ratePerKm: Number,
+}, { _id: false });
 
 const bookingSchema = new mongoose.Schema(
   {
     bookingId: { type: String, unique: true, sparse: true, immutable: true },
+    status: {
+      type: String,
+      enum: ["pending", "completed", "cancelled"],
+      default: "pending",
+      index: true,
+    },
+    statusUpdatedAt: Date,
+    completedAt: Date,
+    cancelledAt: Date,
     fullName: { type: String, required: true, trim: true },
     phone: {
       type: String,
@@ -97,6 +110,7 @@ const bookingSchema = new mongoose.Schema(
     servicePrice: String,
     pricingType: String,
     vehicleRates: { suv: Number, hatchback: Number, traveller: Number },
+    cabPlans: [cabPlanSchema],
     monthlyRates: {
       sixToEight: Number,
       eightToTen: Number,

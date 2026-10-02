@@ -133,10 +133,25 @@ test("booking validation replaces client fare with the server calculation", asyn
  for (const [driverPackage, hours, nightCharge, expected, max] of [
  ["4",4,false,499,499],["8",8,false,899,899],["8",9,false,998,998],
  ["10",10,false,1099,1099],["12",12,false,1299,1299],["12",13,true,1598,1598],
- ["outstation",48,true,2600,2600]]) {
+ ["outstation",48,true,2800,2800]]) {
  const input = {driverPackage, nightCharge, startDateTime:"2026-09-08T08:00",endDateTime:new Date(Date.UTC(2026,8,8,8)+hours*3600000).toISOString().slice(0,16)};
  const fare = calculateDriverOnlyFare(input);
  assert.equal(fare.totalFare,expected); assert.equal(fare.maximumFare,max);
  assert.deepEqual(browserFare(input),fare);
  }
  });
+
+test("driver-only night charge is applied for each night the booking overlaps", async () => {
+  const { calculateDriverOnlyFare: browserFare } = await import("../../frontend/src/utils/fare.js");
+  for (const [startDateTime, endDateTime, forcedNight, expectedNightFare] of [
+    ["2026-09-08T08:00", "2026-09-09T08:00", false, 200],
+    ["2026-09-08T08:00", "2026-09-10T08:00", false, 400],
+    ["2026-09-08T08:00", "2026-09-08T20:00", false, 0],
+    ["2026-09-08T08:00", "2026-09-08T20:00", true, 200],
+  ]) {
+    const input = { startDateTime, endDateTime, driverPackage: "outstation", nightCharge: forcedNight };
+    const fare = calculateDriverOnlyFare(input);
+    assert.equal(fare.nightFare, expectedNightFare);
+    assert.deepEqual(browserFare(input), fare);
+  }
+});

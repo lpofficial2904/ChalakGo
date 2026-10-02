@@ -60,15 +60,19 @@ export function calculateTemporaryDriverFare({ startDateTime, endDateTime }) {
 
 export { calculateDriverOnlyFare } from "../shared/driverPricing.js";
 
-export function calculateDistanceFare({ distanceKm, carType, vehicleRates }) {
+export function calculateDistanceFare({ distanceKm, carType, vehicleRates, cabPlans }) {
   const distance = Number(distanceKm);
   const type = String(carType);
-  const traveller = /traveller/i.test(type);
-  const suv = /suv/i.test(type);
-  if (!traveller && !suv && !/hatchback/i.test(type))
+  const selectedPlan = Array.isArray(cabPlans) ? cabPlans.find((item) => item.carType === type) : null;
+  const traveller = selectedPlan?.key === "traveller" || /traveller/i.test(type);
+  const suv = selectedPlan?.key === "suv" || /suv/i.test(type);
+  const hatchback = selectedPlan?.key === "hatchback" || /hatchback/i.test(type);
+  if (!traveller && !suv && !hatchback)
     throw new Error("Select a valid car type.");
+  const key = traveller ? "traveller" : suv ? "suv" : "hatchback";
+  const plan = selectedPlan || (Array.isArray(cabPlans) ? cabPlans.find((item) => item.key === key) : null);
   const configuredRate = Number(
-    vehicleRates?.[traveller ? "traveller" : suv ? "suv" : "hatchback"],
+    plan?.ratePerKm ?? vehicleRates?.[key],
   );
   const rate =
     Number.isFinite(configuredRate) && configuredRate > 0
@@ -80,8 +84,10 @@ export function calculateDistanceFare({ distanceKm, carType, vehicleRates }) {
           : 11;
   if (!Number.isFinite(distance) || distance <= 0)
     throw new Error("Enter a valid trip distance in kilometres.");
-  const includedKm = traveller ? 0 : 250;
-  const baseFare = traveller ? 0 : suv ? 3500 : 3000;
+  const configuredIncludedKm = Number(plan?.includedKm);
+  const configuredBaseFare = Number(plan?.baseFare);
+  const includedKm = Number.isFinite(configuredIncludedKm) ? configuredIncludedKm : traveller ? 0 : 250;
+  const baseFare = Number.isFinite(configuredBaseFare) ? configuredBaseFare : traveller ? 0 : suv ? 3500 : 3000;
   const additionalKm = Math.max(0, distance - includedKm);
   const additionalFare = Math.round(additionalKm * rate * 100) / 100;
   return {

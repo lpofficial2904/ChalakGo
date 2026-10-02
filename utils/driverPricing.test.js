@@ -42,13 +42,13 @@ test("malformed prices, missing plans and invalid schedules are rejected", () =>
     assert.throws(() => calculateDriverOnlyFare({ startDateTime: "2026-09-28T10:00", endDateTime }));
 });
 
-test("outstation uses the fixed daily rate, rounds partial days up and adds night once", () => {
+test("outstation uses the fixed daily rate, rounds partial days up and charges each night", () => {
   const fare = calculateDriverOnlyFare({ driverPackage: "outstation", startDateTime: "2026-09-26T17:21", endDateTime: "2026-09-29T17:21" });
   assert.equal(fare.baseFare, 3600);
   assert.equal(fare.baseHours, 72);
   assert.equal(fare.additionalFare, 0);
-  assert.equal(fare.nightFare, 200);
-  assert.equal(fare.totalFare, 3800);
+  assert.equal(fare.nightFare, 600);
+  assert.equal(fare.totalFare, 4200);
   const partial = calculateDriverOnlyFare({ driverPackage: "outstation", startDateTime: "2026-09-26T10:00", endDateTime: "2026-09-27T10:01" });
   assert.equal(partial.baseFare, 2400);
 });

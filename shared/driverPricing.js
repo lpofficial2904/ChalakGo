@@ -57,16 +57,20 @@ export function calculateDriverOnlyFare({ startDateTime, endDateTime, driverPack
   const end = parse(endDateTime);
   const durationMinutes = (end - start) / 60000;
   if (durationMinutes <= 0) throw new Error("End date/time must be after start date/time.");
-  // datetime-local represents the service's local clock. Check overlap with
-  // 22:00–06:00 without applying the server's timezone to that clock.
-  const startHour = new Date(start).getUTCHours() + new Date(start).getUTCMinutes() / 60;
-  const overlapsNight = startHour < 6 || startHour >= 22 || durationMinutes > (22 - startHour) * 60;
+  // datetime-local represents the service's local clock; count each overlapped
+  // 22:00–06:00 window without applying the server's timezone to that clock.
+  let nightCount = 0;
+  const firstNight = Math.floor(start / 86400000) * 86400000 - 86400000 + 22 * 3600000;
+  for (let nightStart = firstNight; nightStart < end; nightStart += 86400000) {
+    const nightEnd = nightStart + 8 * 3600000;
+    if (start < nightEnd && end > nightStart) nightCount += 1;
+  }
   const outstation = plan.id === "outstation";
   const days = Math.max(1, Math.ceil(durationMinutes / 1440));
   const baseFare = plan.price * (outstation ? days : 1);
   const additionalHours = outstation ? 0 : Math.max(0, durationMinutes / 60 - plan.hours);
   const additionalFare = Math.round(additionalHours * config.additionalHourlyRate * 100) / 100;
-  const nightFare = overlapsNight || nightCharge ? config.nightCharge : 0;
+  const nightFare = config.nightCharge * Math.max(nightCount, nightCharge ? 1 : 0);
   const totalFare = Math.round((baseFare + additionalFare + nightFare) * 100) / 100;
   return {
     durationMinutes, duration: `${Math.floor(durationMinutes / 60)} hours ${durationMinutes % 60} minutes`,

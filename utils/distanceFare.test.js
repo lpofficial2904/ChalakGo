@@ -46,3 +46,22 @@ test("booking schema recalculates flat plus excess distance rather than trusting
   await booking.validate();
   assert.equal(booking.totalFare, 3550);
 });
+
+test("admin-configured cab plan controls labels, package distance and fare on client and server", async () => {
+  const cabPlans = [{ key: "suv", name: "Premium SUV", carType: "Premium family car", seats: "7 seats", description: "Custom plan", baseFare: 4200, includedKm: 300, ratePerKm: 17 }];
+  const input = { carType: "Premium family car", distanceKm: 325, vehicleRates: { suv: 1 }, cabPlans };
+  const fare = serverFare(input);
+  assert.deepEqual(browserFare(input), fare);
+  assert.equal(fare.totalFare, 4625);
+  assert.equal(fare.includedKm, 300);
+  assert.equal(fare.ratePerKm, 17);
+
+  const booking = new Booking({
+    fullName: "Test Customer", phone: "9876543210", service: "Cab (Car + Driver)",
+    servicePrice: "Cab tariff", pricingType: "distance", cabPlans,
+    carType: input.carType, distanceKm: input.distanceKm, duration: "325 km",
+    pickup: { source: "manual", formattedAddress: "Jaipur" }, address: "Jaipur", pickupLocation: "Jaipur",
+  });
+  await booking.validate();
+  assert.equal(booking.totalFare, 4625);
+});

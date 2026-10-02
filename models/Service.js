@@ -11,6 +11,19 @@ const tourPlanSchema = new mongoose.Schema(
   },
   { _id: false },
 );
+const cabPlanSchema = new mongoose.Schema(
+  {
+    key: { type: String, required: true, enum: ["hatchback", "suv", "traveller"] },
+    name: { type: String, required: true, trim: true },
+    carType: { type: String, required: true, trim: true },
+    seats: { type: String, trim: true },
+    description: { type: String, trim: true },
+    baseFare: { type: Number, min: 0, default: 0 },
+    includedKm: { type: Number, min: 0, default: 0 },
+    ratePerKm: { type: Number, min: 0, required: true },
+  },
+  { _id: false },
+);
 const schema = new mongoose.Schema(
   {
     slug: { type: String, required: true, unique: true, trim: true },
@@ -23,6 +36,7 @@ const schema = new mongoose.Schema(
     },
     driverPricing: { type: driverPricingSchema, default: undefined },
     vehicleRates: { suv: Number, hatchback: Number, traveller: Number },
+    cabPlans: [cabPlanSchema],
     monthlyRates: {
       sixToEight: Number,
       eightToTen: Number,

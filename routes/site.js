@@ -91,6 +91,11 @@ const defaultServices = [
     price: "SUV ₹18/km; Hatchback ₹14/km; Haravan Traveller ₹35/km",
     pricingType: "distance",
     vehicleRates: { suv: 12, hatchback: 11, traveller: 35 },
+    cabPlans: [
+      { key: "hatchback", name: "Hatchback", carType: "Hatchback (5 seater)", seats: "5 seater", description: "Comfortable city rides and everyday trips.", baseFare: 3000, includedKm: 250, ratePerKm: 11 },
+      { key: "suv", name: "SUV", carType: "SUV (5 seater)", seats: "5 / 7 seater", description: "Spacious travel for families and longer journeys.", baseFare: 3500, includedKm: 250, ratePerKm: 12 },
+      { key: "traveller", name: "Haravan Traveller", carType: "Haravan Traveller", seats: "Group travel", description: "Travel together on group outings and tours.", baseFare: 0, includedKm: 0, ratePerKm: 35 },
+    ],
     eyebrow: "PREMIUM CAR WITH PROFESSIONAL CHAUFFEUR",
     detail:
       "Travel in comfort with a clean premium car and an experienced driver for work, airport transfers, and special occasions.",
@@ -191,6 +196,7 @@ async function runServiceImport() {
       $or: [
         { pricingType: { $ne: "distance" } },
         { "vehicleRates.traveller": { $exists: false } },
+        { "cabPlans.0": { $exists: false } },
       ],
     },
     {
@@ -199,6 +205,11 @@ async function runServiceImport() {
         price: "SUV ₹18/km; Hatchback ₹14/km; Haravan Traveller ₹35/km",
         pricingType: "distance",
         vehicleRates: { suv: 12, hatchback: 11, traveller: 35 },
+        cabPlans: [
+          { key: "hatchback", name: "Hatchback", carType: "Hatchback (5 seater)", seats: "5 seater", description: "Comfortable city rides and everyday trips.", baseFare: 3000, includedKm: 250, ratePerKm: 11 },
+          { key: "suv", name: "SUV", carType: "SUV (5 seater)", seats: "5 / 7 seater", description: "Spacious travel for families and longer journeys.", baseFare: 3500, includedKm: 250, ratePerKm: 12 },
+          { key: "traveller", name: "Haravan Traveller", carType: "Haravan Traveller", seats: "Group travel", description: "Travel together on group outings and tours.", baseFare: 0, includedKm: 0, ratePerKm: 35 },
+        ],
       },
     },
   );

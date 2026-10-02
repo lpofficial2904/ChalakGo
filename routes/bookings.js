@@ -27,6 +27,11 @@ router.post("/", async (req, res) => {
       fullName: req.body.fullName,
       phone: req.body.phone,
     };
+    // Booking workflow fields are controlled only by an authenticated admin.
+    delete payload.status;
+    delete payload.statusUpdatedAt;
+    delete payload.completedAt;
+    delete payload.cancelledAt;
     // A GPS reading is useful even when reverse geocoding has no address.
     // Older Netlify builds sent its coordinate fallback only as `address`,
     // while the booking schema also requires the two pickup address fields.
@@ -66,6 +71,7 @@ router.post("/", async (req, res) => {
       if (service?.price) payload.servicePrice = service.price;
       if (service?.pricingType) payload.pricingType = service.pricingType;
       if (service?.vehicleRates) payload.vehicleRates = service.vehicleRates;
+      if (service?.cabPlans) payload.cabPlans = service.cabPlans;
       if (service?.monthlyRates) payload.monthlyRates = service.monthlyRates;
       if (service?.tourPlans?.length && payload.tourPlanDays) {
         const plan = service.tourPlans.find(
@@ -201,6 +207,25 @@ router.get("/admin", requireAdmin, async (_req, res) => {
   if (!isDatabaseConnected())
     return res.status(503).json({ message: "Database is not connected." });
   res.json(await Booking.find().sort({ createdAt: -1 }));
+});
+
+router.patch("/admin/:id/status", requireAdmin, async (req, res) => {
+  if (!isDatabaseConnected()) return res.status(503).json({ message: "Database is not connected." });
+  if (!/^[a-f0-9]{24}$/i.test(req.params.id)) return res.status(400).json({ message: "Invalid record ID." });
+  const status = String(req.body?.status || "").toLowerCase();
+  if (!["pending", "completed", "cancelled"].includes(status))
+    return res.status(400).json({ message: "Select Pending, Completed or Cancelled." });
+  const now = new Date();
+  const updates = {
+    status,
+    statusUpdatedAt: now,
+    completedAt: status === "completed" ? now : null,
+    cancelledAt: status === "cancelled" ? now : null,
+  };
+  const booking = await Booking.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true, runValidators: true });
+  if (!booking) return res.status(404).json({ message: "Booking not found." });
+  notifyAdminRequests();
+  res.json(booking);
 });
 
 router.delete("/admin/:id", requireAdmin, async (req, res) => {
