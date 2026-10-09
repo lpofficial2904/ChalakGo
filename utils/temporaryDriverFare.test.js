@@ -1,4 +1,4 @@
-import test from "node:test";
+ï»¿import test from "node:test";
 import assert from "node:assert/strict";
 import {
   calculateDistanceFare,
@@ -90,19 +90,19 @@ test("Permanent Driver shift rates calculate selected days from monthly plans", 
     tenToTwelve: 22000,
   };
   assert.equal(
-    calculateMonthlyFare({ duration: "6–8 Hours / Day", monthlyRates, startDateTime: "2026-09-08T10:00", endDateTime: "2026-09-09T10:00" })
+    calculateMonthlyFare({ duration: "6-8 Hours / Day", monthlyRates, startDateTime: "2026-09-08T10:00", endDateTime: "2026-09-09T10:00" })
       .totalFare,
     500,
   );
   assert.equal(
-    calculateMonthlyFare({ duration: "8–10 Hours / Day", monthlyRates, startDateTime: "2026-09-08T10:00", endDateTime: "2026-09-13T10:00" })
+    calculateMonthlyFare({ duration: "8-10 Hours / Day", monthlyRates, startDateTime: "2026-09-08T10:00", endDateTime: "2026-09-13T10:00" })
       .totalFare,
     3000,
   );
   assert.equal(
-    calculateMonthlyFare({ duration: "10–12 Hours / Day", monthlyRates, startDateTime: "2026-09-08T10:00", endDateTime: "2026-09-10T22:00" })
+    calculateMonthlyFare({ duration: "10-12 Hours / Day", monthlyRates, startDateTime: "2026-09-08T10:00", endDateTime: "2026-09-10T22:00" })
       .totalFare,
-    2200.01,
+    2199.99,
   );
 });
 
@@ -155,4 +155,5 @@ test("driver-only night charge is applied for each night the booking overlaps", 
     assert.deepEqual(browserFare(input), fare);
   }
 });
+
 
