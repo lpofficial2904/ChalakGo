@@ -4,7 +4,7 @@ import { createReverseGeocoder, parseCoordinate } from "./reverseGeocode.js";
 import {
   addressFormValues,
   pickupPayload,
-} from "../../frontend/src/utils/location.js";
+} from "./locationPayload.js";
 import Booking from "../models/Booking.js";
 
 test("endpoint coordinates reject missing, blank, array and out of range values", () => {

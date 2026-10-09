@@ -4,7 +4,7 @@ import express from "express";
 import mongoose from "mongoose";
 import { Router, apiErrorHandler } from "./router.js";
 import { normalizeAssetUrls } from "./assets.js";
-import { idOf } from "../../admin/utils/id.js";
+import { idOf } from "./id.js";
 
 test("new admin forms have no record ID; existing IDs survive JSON serialization", () => {
   assert.equal(idOf({ title: "New page", slug: "new-page" }), "");
