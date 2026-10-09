@@ -101,7 +101,15 @@ export function calculateDistanceFare({ distanceKm, carType, vehicleRates, cabPl
   };
 }
 
-export function calculateMonthlyFare({ duration, monthlyRates }) {
+function calculateBillingDays({ startDateTime, endDateTime }) {
+  const durationMinutes =
+    (parseBookingTime(endDateTime) - parseBookingTime(startDateTime)) / 60000;
+  if (durationMinutes <= 0)
+    throw new Error("End date/time must be after start date/time.");
+  return Math.max(1, Math.ceil(durationMinutes / 1440));
+}
+
+export function calculateMonthlyFare({ duration, monthlyRates, startDateTime, endDateTime }) {
   const rates = monthlyRates || {};
   const key = /6\s*[–-]\s*8/.test(String(duration))
     ? "sixToEight"
@@ -113,7 +121,14 @@ export function calculateMonthlyFare({ duration, monthlyRates }) {
   const monthlyRate = Number(rates[key]);
   if (!key || !Number.isFinite(monthlyRate) || monthlyRate <= 0)
     throw new Error("Select a valid permanent driver shift.");
-  return { monthlyRate, totalFare: monthlyRate };
+  const billingDays = calculateBillingDays({ startDateTime, endDateTime });
+  const dailyRate = Math.round((monthlyRate / 30) * 100) / 100;
+  return {
+    monthlyRate,
+    dailyRate,
+    billingDays,
+    totalFare: Math.round(dailyRate * billingDays * 100) / 100,
+  };
 }
 
 export function calculateFixedFare({ tourPlanPrice }) {

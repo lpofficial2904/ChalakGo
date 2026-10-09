@@ -83,26 +83,26 @@ test("Cab vehicle rates calculate SUV and Hatchback fares by distance", () => {
   );
 });
 
-test("Permanent Driver shift rates calculate monthly estimates", () => {
+test("Permanent Driver shift rates calculate selected days from monthly plans", () => {
   const monthlyRates = {
     sixToEight: 15000,
     eightToTen: 18000,
     tenToTwelve: 22000,
   };
   assert.equal(
-    calculateMonthlyFare({ duration: "6â€“8 Hours / Day", monthlyRates })
+    calculateMonthlyFare({ duration: "6–8 Hours / Day", monthlyRates, startDateTime: "2026-09-08T10:00", endDateTime: "2026-09-09T10:00" })
       .totalFare,
-    15000,
+    500,
   );
   assert.equal(
-    calculateMonthlyFare({ duration: "8â€“10 Hours / Day", monthlyRates })
+    calculateMonthlyFare({ duration: "8–10 Hours / Day", monthlyRates, startDateTime: "2026-09-08T10:00", endDateTime: "2026-09-13T10:00" })
       .totalFare,
-    18000,
+    3000,
   );
   assert.equal(
-    calculateMonthlyFare({ duration: "10â€“12 Hours / Day", monthlyRates })
+    calculateMonthlyFare({ duration: "10–12 Hours / Day", monthlyRates, startDateTime: "2026-09-08T10:00", endDateTime: "2026-09-10T22:00" })
       .totalFare,
-    22000,
+    2200.01,
   );
 });
 
@@ -155,3 +155,4 @@ test("driver-only night charge is applied for each night the booking overlaps", 
     assert.deepEqual(browserFare(input), fare);
   }
 });
+
